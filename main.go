@@ -28,19 +28,18 @@ func main() {
 	worldX := 120
 	worldY := 100
 
-	game := GenerateGame(worldY, worldX)
-	d := NewGameWindowManager(game, g)
+	w := NewGameWindowManager(g, worldY, worldX)
 
 	done := make(chan struct{})
-	go loopDisplay(d, &done)
-	go loopUpdateState(game)
+	go loopDisplay(w, &done)
+	go loopUpdateState(w)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalln(err)
 	}
 }
 
-func loopDisplay(d *GameWindowManager, done *chan struct{}) {
+func loopDisplay(w *GameWindowManager, done *chan struct{}) {
 	ticker := time.NewTicker(time.Millisecond * 10)
 	defer ticker.Stop()
 
@@ -54,13 +53,13 @@ func loopDisplay(d *GameWindowManager, done *chan struct{}) {
 			count %= 10
 
 			if count == 0 {
-				d.Update()
+				w.Update()
 			}
 		}
 	}
 }
 
-func loopUpdateState(game *Game) {
+func loopUpdateState(w *GameWindowManager) {
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
 
@@ -69,7 +68,7 @@ func loopUpdateState(game *Game) {
 		<-ticker.C
 
 		if count == 0 {
-			game.Tick()
+			w.game.Tick()
 			count = 10
 		} else {
 			count--

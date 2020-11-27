@@ -27,22 +27,19 @@ func (d *GameWindowManager) Update() {
 }
 
 // NewGameWindowManager will initialize the game display windows
-func NewGameWindowManager(game *Game, g *gocui.Gui) *GameWindowManager {
+func NewGameWindowManager(g *gocui.Gui, mapHeight int, mapWidth int) *GameWindowManager {
 	var d *GameWindowManager
 	d = new(GameWindowManager)
 	d.maxViewX = 100
 	d.maxViewY = 80
-	d.game = game
 	d.g = g
-	d.mainMenu = false
+	d.mainMenu = true
 	d.tick = 0
 
-	mapHeight := len(game.WorldMap)
 	if mapHeight < d.maxViewY-2 {
 		return nil
 	}
 
-	mapWidth := len(game.WorldMap)
 	if mapWidth < d.maxViewX-2 {
 		return nil
 	}
@@ -200,16 +197,14 @@ func createMainMenuLayout(w *GameWindowManager, g *gocui.Gui) error {
 		v.Clear()
 
 		fmt.Fprintf(v, "[N]ew game\n")
-		fmt.Fprintf(v, "[C]ontinue game\n")
+		if w.game != nil {
+			fmt.Fprintf(v, "[C]ontinue game\n")
+		}
 		fmt.Fprintf(v, "[S]ettings\n")
 	}
 
 	v, err = g.SetView("ConveyorBeltAnimation", 24, 18, maxX-1, maxY-1)
 	if err == nil || err == gocui.ErrUnknownView {
-		if _, err := g.SetCurrentView("ConveyorBeltAnimation"); err != nil {
-			return err
-		}
-
 		if _, err := g.SetViewOnTop("ConveyorBeltAnimation"); err != nil {
 			return err
 		}
@@ -313,6 +308,24 @@ func initKeybindings(w *GameWindowManager, g *gocui.Gui) error {
 			if w.ghost != nil {
 				copy := w.ghost.Copy()
 				w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
+			}
+			return nil
+		}); err != nil {
+		return err
+	}
+
+	if err := g.SetKeybinding("SelectionMenu", 'n', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			w.mainMenu = false
+			w.game = GenerateGame(120, 100)
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("SelectionMenu", 'c', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.game != nil {
+				w.mainMenu = true
 			}
 			return nil
 		}); err != nil {
