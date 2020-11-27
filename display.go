@@ -14,6 +14,7 @@ type Display struct {
 	offsetX, offsetY   int
 	game               *Game
 	g                  *gocui.Gui
+	mainMenu           bool
 
 	mu    sync.Mutex
 	ghost Structure
@@ -32,6 +33,7 @@ func GetDisplay(game *Game, g *gocui.Gui) *Display {
 	d.maxViewY = 80
 	d.game = game
 	d.g = g
+	d.mainMenu = false
 
 	mapHeight := len(game.WorldMap)
 	if mapHeight < d.maxViewY-2 {
@@ -43,7 +45,7 @@ func GetDisplay(game *Game, g *gocui.Gui) *Display {
 		return nil
 	}
 
-	g.Mouse = true
+	g.Mouse = false
 	g.Cursor = true
 
 	g.SetManagerFunc(createLayout(d))
@@ -53,72 +55,211 @@ func GetDisplay(game *Game, g *gocui.Gui) *Display {
 }
 
 func createLayout(d *Display) func(g *gocui.Gui) error {
-
+	tick := 0
 	return func(g *gocui.Gui) error {
-		d.mu.Lock()
-		defer d.mu.Unlock()
-
-		maxX, maxY := g.Size()
-
-		if d.maxViewX < maxX {
-			maxX = d.maxViewX
-		}
-
-		if d.maxViewY < maxY {
-			maxY = d.maxViewY
-		}
-
-		worldY := len(d.game.WorldMap)
-		worldX := len(d.game.WorldMap[0])
-
-		v, err := g.SetView("Map", 0, 0, maxX-1, maxY-1)
-		if err == nil || err == gocui.ErrUnknownView {
-			if _, err := g.SetCurrentView("Map"); err != nil {
-				return err
-			}
-			v.Clear()
-			v.Title = "World"
-
-			worldMaxY := d.offsetY + maxY - 2
-			worldMaxX := d.offsetX + maxX - 2
-
-			adjustY := worldY - worldMaxY
-			if adjustY < 0 {
-				d.offsetY += adjustY
-			}
-
-			adjustX := worldX - worldMaxX
-			if adjustX < 0 {
-				d.offsetX += adjustX
-			}
-
-			for i := d.offsetY; i < worldMaxY; i++ {
-				for j := d.offsetX; j < worldMaxX; j++ {
-					if d.ghost != nil && d.cursorY == i && d.cursorX == j {
-						fmt.Fprintf(v, "%s", d.ghost.Show())
-					} else {
-						fmt.Fprintf(v, "%s", d.game.WorldMap[i][j].Show())
-					}
-
-				}
-				fmt.Fprintln(v, "")
-			}
+		tick++
+		if d.mainMenu {
+			createMainMenuLayout(d, g, tick)
 		} else {
-			if d.cursorY > maxY-2 || d.cursorX > maxX-2 {
-				d.cursorY = 0
-				d.cursorX = 0
-			}
+			createGameLayout(d, g)
 		}
-		v.SetCursor(d.cursorX, d.cursorY)
 
 		return nil
 	}
+}
+
+func createGameLayout(d *Display, g *gocui.Gui) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	g.Cursor = true
+
+	maxX, maxY := g.Size()
+
+	if d.maxViewX < maxX {
+		maxX = d.maxViewX
+	}
+
+	if d.maxViewY < maxY {
+		maxY = d.maxViewY
+	}
+
+	worldY := len(d.game.WorldMap)
+	worldX := len(d.game.WorldMap[0])
+
+	v, err := g.SetView("Map", 0, 0, maxX-1, maxY-1)
+	if err == nil || err == gocui.ErrUnknownView {
+		if _, err := g.SetCurrentView("Map"); err != nil {
+			return err
+		}
+
+		if _, err := g.SetViewOnTop("Map"); err != nil {
+			return err
+		}
+
+		v.Clear()
+		v.Title = "World"
+
+		worldMaxY := d.offsetY + maxY - 2
+		worldMaxX := d.offsetX + maxX - 2
+
+		adjustY := worldY - worldMaxY
+		if adjustY < 0 {
+			d.offsetY += adjustY
+		}
+
+		adjustX := worldX - worldMaxX
+		if adjustX < 0 {
+			d.offsetX += adjustX
+		}
+
+		for i := d.offsetY; i < worldMaxY; i++ {
+			for j := d.offsetX; j < worldMaxX; j++ {
+				if d.ghost != nil && d.cursorY == i && d.cursorX == j {
+					fmt.Fprintf(v, "%s", d.ghost.Show())
+				} else {
+					fmt.Fprintf(v, "%s", d.game.WorldMap[i][j].Show())
+				}
+
+			}
+			fmt.Fprintln(v, "")
+		}
+	} else {
+		if d.cursorY > maxY-2 || d.cursorX > maxX-2 {
+			d.cursorY = 0
+			d.cursorX = 0
+		}
+	}
+	v.SetCursor(d.cursorX, d.cursorY)
+
+	return nil
+}
+
+func createMainMenuLayout(d *Display, g *gocui.Gui, tick int) error {
+	g.Cursor = false
+
+	maxX, maxY := g.Size()
+
+	v, err := g.SetView("MainMenu", 0, 0, maxX-1, maxY-1)
+	if err == nil || err == gocui.ErrUnknownView {
+		if _, err := g.SetViewOnTop("MainMenu"); err != nil {
+			return err
+		}
+
+		v.Title = "Main Menu"
+		v.Clear()
+
+		mat := [][]int{
+			{0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 1, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0},
+			{0, 0, 0, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 0, 0, 0},
+			{0, 0, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 0, 0},
+			{0, 0, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 0, 0},
+			{0, 0, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 3, 1, 3, 3, 3, 0, 0},
+			{0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0},
+			{0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0},
+			{6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6, 6, 7, 7, 7, 7, 6, 6, 6, 6},
+			{6, 0, 6, 7, 7, 7, 7, 7, 7, 6, 6, 6, 7, 7, 7, 7, 7, 7, 6, 0, 6},
+			{6, 6, 6, 7, 7, 7, 7, 0, 0, 6, 6, 6, 7, 7, 7, 7, 0, 0, 6, 6, 6},
+			{0, 0, 6, 7, 7, 7, 0, 0, 0, 6, 6, 6, 7, 7, 7, 0, 0, 0, 6, 0, 0},
+			{0, 0, 6, 7, 7, 7, 0, 0, 0, 6, 6, 6, 7, 7, 7, 0, 0, 0, 6, 0, 0},
+			{0, 0, 6, 6, 7, 7, 7, 7, 6, 0, 0, 0, 6, 7, 7, 7, 7, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 1, 0, 0, 0, 1, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 7, 7, 0, 7, 7, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 7, 7, 0, 7, 7, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 7, 7, 0, 7, 7, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0},
+			{0, 0, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0},
+		}
+
+		for _, line := range mat {
+			for _, cell := range line {
+				fmt.Fprintf(v, "\033[3%d;7m \033[0m", cell)
+			}
+			fmt.Fprintln(v)
+		}
+	}
+
+	v, err = g.SetView("SelectionMenu", 24, 14, 40, 18)
+	if err == nil || err == gocui.ErrUnknownView {
+		if _, err := g.SetCurrentView("SelectionMenu"); err != nil {
+			return err
+		}
+
+		if _, err := g.SetViewOnTop("SelectionMenu"); err != nil {
+			return err
+		}
+
+		v.Frame = false
+		v.Clear()
+
+		fmt.Fprintf(v, "[N]ew game\n")
+		fmt.Fprintf(v, "[C]ontinue game\n")
+		fmt.Fprintf(v, "[S]ettings\n")
+	}
+
+	v, err = g.SetView("ConveyorBeltAnimation", 24, 18, maxX-1, maxY-1)
+	if err == nil || err == gocui.ErrUnknownView {
+		if _, err := g.SetCurrentView("ConveyorBeltAnimation"); err != nil {
+			return err
+		}
+
+		if _, err := g.SetViewOnTop("ConveyorBeltMenu"); err != nil {
+			return err
+		}
+
+		v.Frame = false
+		v.Clear()
+
+		mat := [][]int{
+			{1, 1, 0, 3, 3, 3, 3, 0, 4, 4, 4, 4, 0, 1, 1},
+			{1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1},
+			{1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1, 1},
+			{3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1},
+			{1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1, 1},
+			{1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 1, 1, 1},
+			{1, 1, 0, 3, 3, 3, 3, 0, 4, 4, 4, 4, 0, 1, 1},
+		}
+
+		offset := tick % len(mat[0])
+		bx, _ := v.Size()
+		bx -= offset
+		repeat := bx/len(mat[0]) + 2
+
+		for _, line := range mat {
+			for _, cell := range line[offset:] {
+				fmt.Fprintf(v, "\033[3%d;7m \033[0m", cell)
+			}
+
+			for i := 0; i < repeat; i++ {
+				for _, cell := range line {
+					fmt.Fprintf(v, "\033[3%d;7m \033[0m", cell)
+				}
+			}
+
+			fmt.Fprintln(v)
+		}
+	}
+
+	return nil
 }
 
 func initKeybindings(d *Display, g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			return gocui.ErrQuit
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("", gocui.KeyBackspace, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			d.mainMenu = !d.mainMenu
+			return nil
 		}); err != nil {
 		return err
 	}
