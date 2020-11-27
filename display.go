@@ -7,33 +7,35 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
-// Display represents the display window
-type Display struct {
+// GameWindowManager represents the display window
+type GameWindowManager struct {
 	maxViewX, maxViewY int
 	cursorX, cursorY   int
 	offsetX, offsetY   int
 	game               *Game
 	g                  *gocui.Gui
 	mainMenu           bool
+	tick               int
 
 	mu    sync.Mutex
 	ghost Structure
 }
 
 // Update the interface
-func (d *Display) Update() {
-	d.g.Update(createLayout(d))
+func (d *GameWindowManager) Update() {
+	d.g.Update(d.Layout)
 }
 
-// GetDisplay will initialize the game display windows
-func GetDisplay(game *Game, g *gocui.Gui) *Display {
-	var d *Display
-	d = new(Display)
+// NewGameWindowManager will initialize the game display windows
+func NewGameWindowManager(game *Game, g *gocui.Gui) *GameWindowManager {
+	var d *GameWindowManager
+	d = new(GameWindowManager)
 	d.maxViewX = 100
 	d.maxViewY = 80
 	d.game = game
 	d.g = g
 	d.mainMenu = false
+	d.tick = 0
 
 	mapHeight := len(game.WorldMap)
 	if mapHeight < d.maxViewY-2 {
@@ -48,44 +50,43 @@ func GetDisplay(game *Game, g *gocui.Gui) *Display {
 	g.Mouse = false
 	g.Cursor = true
 
-	g.SetManagerFunc(createLayout(d))
+	g.SetManagerFunc(d.Layout)
 	initKeybindings(d, g)
 
 	return d
 }
 
-func createLayout(d *Display) func(g *gocui.Gui) error {
-	tick := 0
-	return func(g *gocui.Gui) error {
-		tick++
-		if d.mainMenu {
-			createMainMenuLayout(d, g, tick)
-		} else {
-			createGameLayout(d, g)
-		}
+func (w *GameWindowManager) Layout(g *gocui.Gui) error {
 
-		return nil
+	w.tick++
+	if w.mainMenu {
+		createMainMenuLayout(w, g)
+	} else {
+		createGameLayout(w, g)
 	}
+
+	return nil
+
 }
 
-func createGameLayout(d *Display, g *gocui.Gui) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+func createGameLayout(w *GameWindowManager, g *gocui.Gui) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
 	g.Cursor = true
 
 	maxX, maxY := g.Size()
 
-	if d.maxViewX < maxX {
-		maxX = d.maxViewX
+	if w.maxViewX < maxX {
+		maxX = w.maxViewX
 	}
 
-	if d.maxViewY < maxY {
-		maxY = d.maxViewY
+	if w.maxViewY < maxY {
+		maxY = w.maxViewY
 	}
 
-	worldY := len(d.game.WorldMap)
-	worldX := len(d.game.WorldMap[0])
+	worldY := len(w.game.WorldMap)
+	worldX := len(w.game.WorldMap[0])
 
 	v, err := g.SetView("Map", 0, 0, maxX-1, maxY-1)
 	if err == nil || err == gocui.ErrUnknownView {
@@ -100,42 +101,42 @@ func createGameLayout(d *Display, g *gocui.Gui) error {
 		v.Clear()
 		v.Title = "World"
 
-		worldMaxY := d.offsetY + maxY - 2
-		worldMaxX := d.offsetX + maxX - 2
+		worldMaxY := w.offsetY + maxY - 2
+		worldMaxX := w.offsetX + maxX - 2
 
 		adjustY := worldY - worldMaxY
 		if adjustY < 0 {
-			d.offsetY += adjustY
+			w.offsetY += adjustY
 		}
 
 		adjustX := worldX - worldMaxX
 		if adjustX < 0 {
-			d.offsetX += adjustX
+			w.offsetX += adjustX
 		}
 
-		for i := d.offsetY; i < worldMaxY; i++ {
-			for j := d.offsetX; j < worldMaxX; j++ {
-				if d.ghost != nil && d.cursorY == i && d.cursorX == j {
-					fmt.Fprintf(v, "%s", d.ghost.Show())
+		for i := w.offsetY; i < worldMaxY; i++ {
+			for j := w.offsetX; j < worldMaxX; j++ {
+				if w.ghost != nil && w.cursorY == i && w.cursorX == j {
+					fmt.Fprintf(v, "%s", w.ghost.Show())
 				} else {
-					fmt.Fprintf(v, "%s", d.game.WorldMap[i][j].Show())
+					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Show())
 				}
 
 			}
 			fmt.Fprintln(v, "")
 		}
 	} else {
-		if d.cursorY > maxY-2 || d.cursorX > maxX-2 {
-			d.cursorY = 0
-			d.cursorX = 0
+		if w.cursorY > maxY-2 || w.cursorX > maxX-2 {
+			w.cursorY = 0
+			w.cursorX = 0
 		}
 	}
-	v.SetCursor(d.cursorX, d.cursorY)
+	v.SetCursor(w.cursorX, w.cursorY)
 
 	return nil
 }
 
-func createMainMenuLayout(d *Display, g *gocui.Gui, tick int) error {
+func createMainMenuLayout(w *GameWindowManager, g *gocui.Gui) error {
 	g.Cursor = false
 
 	maxX, maxY := g.Size()
@@ -209,7 +210,7 @@ func createMainMenuLayout(d *Display, g *gocui.Gui, tick int) error {
 			return err
 		}
 
-		if _, err := g.SetViewOnTop("ConveyorBeltMenu"); err != nil {
+		if _, err := g.SetViewOnTop("ConveyorBeltAnimation"); err != nil {
 			return err
 		}
 
@@ -226,7 +227,7 @@ func createMainMenuLayout(d *Display, g *gocui.Gui, tick int) error {
 			{1, 1, 0, 3, 3, 3, 3, 0, 4, 4, 4, 4, 0, 1, 1},
 		}
 
-		offset := tick % len(mat[0])
+		offset := w.tick % len(mat[0])
 		bx, _ := v.Size()
 		bx -= offset
 		repeat := bx/len(mat[0]) + 2
@@ -249,7 +250,7 @@ func createMainMenuLayout(d *Display, g *gocui.Gui, tick int) error {
 	return nil
 }
 
-func initKeybindings(d *Display, g *gocui.Gui) error {
+func initKeybindings(w *GameWindowManager, g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			return gocui.ErrQuit
@@ -258,41 +259,41 @@ func initKeybindings(d *Display, g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding("", gocui.KeyBackspace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			d.mainMenu = !d.mainMenu
+			w.mainMenu = !w.mainMenu
 			return nil
 		}); err != nil {
 		return err
 	}
 
 	if err := g.SetKeybinding("Map", gocui.KeyArrowDown, gocui.ModNone,
-		moveCursor(d, 0, 1)); err != nil {
+		moveCursor(w, 0, 1)); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("Map", gocui.KeyArrowUp, gocui.ModNone,
-		moveCursor(d, 0, -1)); err != nil {
+		moveCursor(w, 0, -1)); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("Map", gocui.KeyArrowLeft, gocui.ModNone,
-		moveCursor(d, -1, 0)); err != nil {
+		moveCursor(w, -1, 0)); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("Map", gocui.KeyArrowRight, gocui.ModNone,
-		moveCursor(d, 1, 0)); err != nil {
+		moveCursor(w, 1, 0)); err != nil {
 		return err
 	}
 
 	if err := g.SetKeybinding("Map", 'b', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { d.ghost = &Belt{0, nil}; return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = &Belt{0, nil}; return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("Map", 'd', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { d.ghost = nil; return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding("Map", 'e', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if d.ghost != nil {
-				d.ghost.RotateRight()
+			if w.ghost != nil {
+				w.ghost.RotateRight()
 			}
 			return nil
 		}); err != nil {
@@ -300,8 +301,8 @@ func initKeybindings(d *Display, g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding("Map", 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if d.ghost != nil {
-				d.ghost.RotateLeft()
+			if w.ghost != nil {
+				w.ghost.RotateLeft()
 			}
 			return nil
 		}); err != nil {
@@ -309,9 +310,9 @@ func initKeybindings(d *Display, g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding("Map", gocui.KeySpace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if d.ghost != nil {
-				copy := d.ghost.Copy()
-				d.game.PlaceBuilding(d.offsetY+d.cursorY, d.offsetX+d.cursorX, copy)
+			if w.ghost != nil {
+				copy := w.ghost.Copy()
+				w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
 			}
 			return nil
 		}); err != nil {
@@ -321,7 +322,7 @@ func initKeybindings(d *Display, g *gocui.Gui) error {
 	return nil
 }
 
-func moveCursor(d *Display, dx, dy int) func(g *gocui.Gui, v *gocui.View) error {
+func moveCursor(d *GameWindowManager, dx, dy int) func(g *gocui.Gui, v *gocui.View) error {
 	return func(g *gocui.Gui, v *gocui.View) error {
 		cx, cy := d.cursorX, d.cursorY
 		maxX, maxY := v.Size()

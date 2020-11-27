@@ -29,7 +29,7 @@ func main() {
 	worldY := 100
 
 	game := GenerateGame(worldY, worldX)
-	d := GetDisplay(game, g)
+	d := NewGameWindowManager(game, g)
 
 	done := make(chan struct{})
 	go loopDisplay(d, &done)
@@ -40,7 +40,7 @@ func main() {
 	}
 }
 
-func loopDisplay(d *Display, done *chan struct{}) {
+func loopDisplay(d *GameWindowManager, done *chan struct{}) {
 	ticker := time.NewTicker(time.Millisecond * 10)
 	defer ticker.Stop()
 
@@ -51,7 +51,7 @@ func loopDisplay(d *Display, done *chan struct{}) {
 			return
 		case <-ticker.C:
 			count++
-			count %= 50
+			count %= 10
 
 			if count == 0 {
 				d.Update()
