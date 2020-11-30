@@ -49,6 +49,8 @@ func (w *GameWindow) HasGame() bool {
 func (w *GameWindow) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
+	g.Cursor = false
+
 	v, err := g.SetView("GameWindow", 0, 0, maxX-1, maxY-1)
 	if err == nil || err == gocui.ErrUnknownView {
 		if _, err := g.SetViewOnTop("GameWindow"); err != nil {
@@ -134,12 +136,26 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 			w.offsetX += adjustX
 		}
 
+		ghostHeight := -1
+		ghostWidth := -1
+		var ghost [][]string
+		if w.ghost != nil {
+			ghost = w.ghost.Display()
+			ghostHeight = len(ghost)
+			ghostWidth = len(ghost[0])
+		}
+
 		for i := w.offsetY; i < worldMaxY; i++ {
 			for j := w.offsetX; j < worldMaxX; j++ {
-				if w.ghost != nil && w.cursorY == i && w.cursorX == j {
-					fmt.Fprintf(v, "%s", w.ghost.Show())
+				if w.ghost != nil &&
+					w.cursorY <= i &&
+					i < w.cursorY+ghostHeight &&
+					w.cursorX <= j &&
+					j < w.cursorX+ghostWidth {
+					//
+					fmt.Fprintf(v, "%s", ghost[i-w.cursorY][j-w.cursorX])
 				} else {
-					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Show())
+					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display()[0][0])
 				}
 
 			}
@@ -147,61 +163,70 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		}
 
 		if err == gocui.ErrUnknownView {
-			if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
-				w.move(0, 1)); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
-				w.move(0, -1)); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, gocui.KeyArrowLeft, gocui.ModNone,
-				w.move(-1, 0)); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, gocui.KeyArrowRight, gocui.ModNone,
-				w.move(1, 0)); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, 'b', gocui.ModNone,
-				func(g *gocui.Gui, v *gocui.View) error { w.ghost = &Belt{0, nil}; return nil }); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
-				func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, 'e', gocui.ModNone,
-				func(g *gocui.Gui, v *gocui.View) error {
-					if w.ghost != nil {
-						w.ghost.RotateRight()
-					}
-					return nil
-				}); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
-				func(g *gocui.Gui, v *gocui.View) error {
-					if w.ghost != nil {
-						w.ghost.RotateLeft()
-					}
-					return nil
-				}); err != nil {
-				return err
-			}
-			if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
-				func(g *gocui.Gui, v *gocui.View) error {
-					if w.ghost != nil {
-						copy := w.ghost.Copy()
-						w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
-					}
-					return nil
-				}); err != nil {
+			err = w.initBindings(g)
+			if err == nil {
 				return err
 			}
 		}
 	}
 	v.SetCursor(w.cursorX, w.cursorY)
+
+	return nil
+}
+
+func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
+		w.move(0, 1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
+		w.move(0, -1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowLeft, gocui.ModNone,
+		w.move(-1, 0)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowRight, gocui.ModNone,
+		w.move(1, 0)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'b', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = &Belt{0, nil}; return nil }); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'e', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.ghost != nil {
+				w.ghost.RotateRight()
+			}
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.ghost != nil {
+				w.ghost.RotateLeft()
+			}
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.ghost != nil {
+				copy := w.ghost.Copy()
+				w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
+			}
+			return nil
+		}); err != nil {
+		return err
+	}
 
 	return nil
 }

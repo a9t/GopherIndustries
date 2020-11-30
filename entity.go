@@ -2,26 +2,26 @@ package main
 
 import "fmt"
 
-// ShowMode indicates an entity's display mode
-type ShowMode = uint8
+// DisplayMode indicates an entity's display mode
+type DisplayMode = uint8
 
 const (
-	// ShowModeMap default representation on the map
-	ShowModeMap ShowMode = iota
+	// DisplayModeMap default representation on the map
+	DisplayModeMap DisplayMode = iota
 
-	// ShowModePreview representation in the preview section
-	ShowModePreview
+	// DisplayModePreview representation in the preview section
+	DisplayModePreview
 
-	// ShowModeGhostValid valid representation when placing on the map
-	ShowModeGhostValid
+	// DisplayModeGhostValid valid representation when placing on the map
+	DisplayModeGhostValid
 
-	// ShowModeGhostInvalid invalid representation when placing on the map
-	ShowModeGhostInvalid
+	// DisplayModeGhostInvalid invalid representation when placing on the map
+	DisplayModeGhostInvalid
 )
 
 // Tile is a component of the game map
 type Tile interface {
-	Show() string
+	Display() [][]string
 }
 
 // Structure is a Tile containing a player created entity
@@ -65,8 +65,8 @@ func (b *Belt) SetUnderlyingResource(r *Resource) {
 	b.Resource = r
 }
 
-// Show displays the belt
-func (b *Belt) Show() string {
+// Display displays the belt
+func (b *Belt) Display() [][]string {
 	var symbol rune
 	switch b.index {
 	case 0:
@@ -95,7 +95,7 @@ func (b *Belt) Show() string {
 		symbol = '\u251A'
 	}
 
-	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
+	return [][]string{{fmt.Sprintf("\033[33;40m%c\033[0m", symbol)}}
 }
 
 // Copy creates a deep copy of the current Belt
@@ -109,8 +109,8 @@ type Belt struct {
 	Resource *Resource
 }
 
-// Show displays the Resource tile
-func (t *Resource) Show() string {
+// Display displays the Resource tile
+func (t *Resource) Display() [][]string {
 	var symbol rune
 	switch t.amount {
 	case 0:
@@ -123,5 +123,5 @@ func (t *Resource) Show() string {
 		symbol = '\u2593'
 	}
 
-	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
+	return [][]string{{fmt.Sprintf("\033[33;40m%c\033[0m", symbol)}}
 }
