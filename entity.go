@@ -24,6 +24,7 @@ type Tile interface {
 	Display() string
 }
 
+// StructureTile one Tile component of a Structure
 type StructureTile interface {
 	Tile
 	Group() Structure
@@ -103,10 +104,12 @@ func (b *Belt) Display() string {
 	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
 }
 
+// Group returns the Structure the Belt is associated with, itself
 func (b *Belt) Group() Structure {
 	return b
 }
 
+// Tiles return the Tiles associated with the Belt, an array of itself
 func (b *Belt) Tiles() [][]StructureTile {
 	return [][]StructureTile{{b}}
 }
