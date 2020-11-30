@@ -138,9 +138,10 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 
 		ghostHeight := -1
 		ghostWidth := -1
-		var ghost [][]string
+		var ghost [][]StructureTile
 		if w.ghost != nil {
-			ghost = w.ghost.Display()
+			ghost = w.ghost.Tiles()
+
 			ghostHeight = len(ghost)
 			ghostWidth = len(ghost[0])
 		}
@@ -152,10 +153,10 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 					i < w.cursorY+ghostHeight &&
 					w.cursorX <= j &&
 					j < w.cursorX+ghostWidth {
-					//
-					fmt.Fprintf(v, "%s", ghost[i-w.cursorY][j-w.cursorX])
+
+					fmt.Fprintf(v, "%s", ghost[i-w.cursorY][j-w.cursorX].Display())
 				} else {
-					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display()[0][0])
+					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display())
 				}
 
 			}

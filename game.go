@@ -19,18 +19,19 @@ func (g *Game) PlaceBuilding(y, x int, b Structure) bool {
 		return false
 	}
 
-	t := g.WorldMap[y][x]
-	switch t.(type) {
-	case *Resource:
-		b.SetUnderlyingResource(t.(*Resource))
-		g.WorldMap[y][x] = b
-		return true
-	case Structure:
-		return false
-	default:
-		return false
+	for i, tiles := range b.Tiles() {
+		for j, tile := range tiles {
+			t := g.WorldMap[y+i][x+j]
+			switch t.(type) {
+			case *Resource:
+				tile.SetUnderlyingResource(t.(*Resource))
+				g.WorldMap[y][x] = tile
+				return true
+			}
+		}
 	}
 
+	return false
 }
 
 // Tick update the state of the game

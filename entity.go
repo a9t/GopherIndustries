@@ -21,23 +21,28 @@ const (
 
 // Tile is a component of the game map
 type Tile interface {
-	Display() [][]string
+	Display() string
+}
+
+type StructureTile interface {
+	Tile
+	Group() Structure
+	UnderlyingResource() *Resource
+	SetUnderlyingResource(*Resource)
 }
 
 // Structure is a Tile containing a player created entity
 type Structure interface {
-	Tile
+	Tiles() [][]StructureTile
 	RotateLeft()
 	RotateRight()
-	UnderlyingResource() *Resource
-	SetUnderlyingResource(*Resource)
 	Copy() Structure
 }
 
-// Resource is a Tile containing natural resources
-type Resource struct {
-	amount   int
-	resource int
+// Belt is a structure that transports resources
+type Belt struct {
+	index    int
+	Resource *Resource
 }
 
 // RotateRight gets the next rotation of a belt
@@ -66,7 +71,7 @@ func (b *Belt) SetUnderlyingResource(r *Resource) {
 }
 
 // Display displays the belt
-func (b *Belt) Display() [][]string {
+func (b *Belt) Display() string {
 	var symbol rune
 	switch b.index {
 	case 0:
@@ -88,14 +93,22 @@ func (b *Belt) Display() [][]string {
 	case 8:
 		symbol = '\u2511'
 	case 9:
-		symbol = '\u257B'
+		symbol = '\u257C'
 	case 10:
 		symbol = '\u2512'
 	case 11:
 		symbol = '\u251A'
 	}
 
-	return [][]string{{fmt.Sprintf("\033[33;40m%c\033[0m", symbol)}}
+	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
+}
+
+func (b *Belt) Group() Structure {
+	return b
+}
+
+func (b *Belt) Tiles() [][]StructureTile {
+	return [][]StructureTile{{b}}
 }
 
 // Copy creates a deep copy of the current Belt
@@ -103,14 +116,14 @@ func (b *Belt) Copy() Structure {
 	return &Belt{b.index, nil}
 }
 
-// Belt is a structure that transports resources
-type Belt struct {
-	index    int
-	Resource *Resource
+// Resource is a Tile containing natural resources
+type Resource struct {
+	amount   int
+	resource int
 }
 
 // Display displays the Resource tile
-func (t *Resource) Display() [][]string {
+func (t *Resource) Display() string {
 	var symbol rune
 	switch t.amount {
 	case 0:
@@ -123,5 +136,5 @@ func (t *Resource) Display() [][]string {
 		symbol = '\u2593'
 	}
 
-	return [][]string{{fmt.Sprintf("\033[33;40m%c\033[0m", symbol)}}
+	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
 }
