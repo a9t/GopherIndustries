@@ -9,6 +9,9 @@ const (
 	// DisplayModeMap default representation on the map
 	DisplayModeMap DisplayMode = iota
 
+	// DisplayModeMapSelected representation of selected item on the map
+	DisplayModeMapSelected
+
 	// DisplayModePreview representation in the preview section
 	DisplayModePreview
 
@@ -21,7 +24,7 @@ const (
 
 // Tile is a component of the game map
 type Tile interface {
-	Display() string
+	Display(DisplayMode) string
 }
 
 // StructureTile one Tile component of a Structure
@@ -72,7 +75,8 @@ func (b *Belt) SetUnderlyingResource(r *Resource) {
 }
 
 // Display displays the belt
-func (b *Belt) Display() string {
+func (b *Belt) Display(mode DisplayMode) string {
+	symbolColor := 33
 	var symbol rune
 	switch b.index {
 	case 0:
@@ -101,7 +105,22 @@ func (b *Belt) Display() string {
 		symbol = '\u251A'
 	}
 
-	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
+	var colorMode int
+	switch mode {
+	case DisplayModeMap:
+		colorMode = 4
+	case DisplayModeGhostValid:
+		colorMode = 4
+	case DisplayModeGhostInvalid:
+		colorMode = 7
+	case DisplayModeMapSelected:
+		colorMode = 7
+		symbolColor = 37
+	default:
+		colorMode = 4
+	}
+
+	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
 }
 
 // Group returns the Structure the Belt is associated with, itself
@@ -126,7 +145,7 @@ type Resource struct {
 }
 
 // Display displays the Resource tile
-func (t *Resource) Display() string {
+func (t *Resource) Display(mode DisplayMode) string {
 	var symbol rune
 	switch t.amount {
 	case 0:
@@ -139,5 +158,12 @@ func (t *Resource) Display() string {
 		symbol = '\u2593'
 	}
 
-	return fmt.Sprintf("\033[33;40m%c\033[0m", symbol)
+	symbolColor := 33
+	colorMode := 4
+	if mode == DisplayModeMapSelected {
+		symbolColor = 37
+		colorMode = 7
+	}
+
+	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
 }

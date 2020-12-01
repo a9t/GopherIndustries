@@ -88,7 +88,7 @@ func (w *GameMapWidget) SetGame(game *Game) {
 
 // Layout displays the GameMapWidget
 func (w *GameMapWidget) Layout(g *gocui.Gui) error {
-	g.Cursor = true
+	g.Cursor = false
 
 	maxX, maxY := g.Size()
 
@@ -136,27 +136,66 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 			w.offsetX += adjustX
 		}
 
+		ghostMap := make(map[Tile]Tile)
+		selectedMap := make(map[Tile]Tile)
+
 		ghostHeight := -1
 		ghostWidth := -1
 		var ghost [][]StructureTile
+		mode := DisplayModeGhostValid
+
 		if w.ghost != nil {
 			ghost = w.ghost.Tiles()
 
 			ghostHeight = len(ghost)
 			ghostWidth = len(ghost[0])
+
+			// check overlap
+			for i, tileStructures := range ghost {
+				for j, tileStructure := range tileStructures {
+					if tileStructure == nil {
+						continue
+					}
+					ghostMap[tileStructure] = tileStructure
+
+					switch w.game.WorldMap[w.offsetY+i+w.cursorY][w.offsetX+j+w.cursorX].(type) {
+					case StructureTile:
+						mode = DisplayModeGhostInvalid
+						break
+					}
+				}
+				if mode == DisplayModeGhostInvalid {
+					break
+				}
+			}
+		} else {
+			switch selectTile := w.game.WorldMap[w.offsetY+w.cursorY][w.offsetX+w.cursorX].(type) {
+			case StructureTile:
+				for _, tiles := range StructureTile(selectTile).Group().Tiles() {
+					for _, tile := range tiles {
+						selectedMap[tile] = tile
+					}
+				}
+			default:
+				selectedMap[selectTile] = selectTile
+			}
 		}
 
 		for i := w.offsetY; i < worldMaxY; i++ {
 			for j := w.offsetX; j < worldMaxX; j++ {
 				if w.ghost != nil &&
-					w.cursorY <= i &&
-					i < w.cursorY+ghostHeight &&
-					w.cursorX <= j &&
-					j < w.cursorX+ghostWidth {
+					w.cursorY+w.offsetY <= i &&
+					i < w.cursorY+w.offsetY+ghostHeight &&
+					w.cursorX+w.offsetX <= j &&
+					j < w.cursorX+w.offsetX+ghostWidth {
 
-					fmt.Fprintf(v, "%s", ghost[i-w.cursorY][j-w.cursorX].Display())
+					fmt.Fprintf(v, "%s", ghost[i-w.cursorY-w.offsetY][j-w.cursorX-w.offsetX].Display(mode))
 				} else {
-					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display())
+					if _, ok := selectedMap[w.game.WorldMap[i][j]]; ok {
+						fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMapSelected))
+					} else {
+						fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMap))
+					}
 				}
 
 			}
@@ -170,7 +209,6 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 			}
 		}
 	}
-	v.SetCursor(w.cursorX, w.cursorY)
 
 	return nil
 }
