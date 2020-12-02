@@ -30,9 +30,13 @@ type Tile interface {
 // StructureTile one Tile component of a Structure
 type StructureTile interface {
 	Tile
+	RotateLeft()
+	RotateRight()
 	Group() Structure
+	SetGroup(Structure)
 	UnderlyingResource() *Resource
 	SetUnderlyingResource(*Resource)
+	CopyStructureTile() StructureTile
 }
 
 // Structure is a Tile containing a player created entity
@@ -40,7 +44,7 @@ type Structure interface {
 	Tiles() [][]StructureTile
 	RotateLeft()
 	RotateRight()
-	Copy() Structure
+	CopyStructure() Structure
 }
 
 // Belt is a structure that transports resources
@@ -112,10 +116,10 @@ func (b *Belt) Display(mode DisplayMode) string {
 	case DisplayModeGhostValid:
 		colorMode = 4
 	case DisplayModeGhostInvalid:
-		colorMode = 7
+		colorMode = 4
+		symbolColor = 31
 	case DisplayModeMapSelected:
-		colorMode = 7
-		symbolColor = 37
+		colorMode = 4
 	default:
 		colorMode = 4
 	}
@@ -133,8 +137,17 @@ func (b *Belt) Tiles() [][]StructureTile {
 	return [][]StructureTile{{b}}
 }
 
-// Copy creates a deep copy of the current Belt
-func (b *Belt) Copy() Structure {
+// SetGroup specifies the Structure for the Belt (does nothing, as Belt also implements Structure)
+func (b *Belt) SetGroup(s Structure) {
+}
+
+// CopyStructure creates a deep copy of the current Belt
+func (b *Belt) CopyStructure() Structure {
+	return &Belt{b.index, nil}
+}
+
+// CopyStructureTile creates a deep copy of the current Belt
+func (b *Belt) CopyStructureTile() StructureTile {
 	return &Belt{b.index, nil}
 }
 
@@ -166,4 +179,163 @@ func (t *Resource) Display(mode DisplayMode) string {
 	}
 
 	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
+}
+
+// FillerCornerTile a StructureTile that represents a corner
+type FillerCornerTile struct {
+	index     int
+	structure Structure
+	Resource  *Resource
+}
+
+// Display displays the FillerCornerTile tile
+func (t *FillerCornerTile) Display(mode DisplayMode) string {
+	var symbol rune
+
+	switch t.index {
+	case 0:
+		symbol = '\u259B'
+	case 1:
+		symbol = '\u259C'
+	case 2:
+		symbol = '\u259F'
+	case 3:
+		symbol = '\u2599'
+	}
+
+	symbolColor := 33
+	colorMode := 4
+	if mode == DisplayModeMapSelected {
+		symbolColor = 37
+		colorMode = 4
+	} else if mode == DisplayModeGhostInvalid {
+		symbolColor = 31
+		colorMode = 4
+	}
+
+	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
+}
+
+// Group returns the Structure the Belt is associated with, itself
+func (t *FillerCornerTile) Group() Structure {
+	return t.structure
+}
+
+// SetGroup sets the Structure the FillerCornerTile belongs to
+func (t *FillerCornerTile) SetGroup(s Structure) {
+	t.structure = s
+}
+
+// UnderlyingResource provides the resource beneath the building
+func (t *FillerCornerTile) UnderlyingResource() *Resource {
+	return t.Resource
+}
+
+// SetUnderlyingResource sets the resource beneath the building
+func (t *FillerCornerTile) SetUnderlyingResource(r *Resource) {
+	t.Resource = r
+}
+
+// RotateRight gets the next rotation of a FillerCornerTile
+func (t *FillerCornerTile) RotateRight() {
+	t.index++
+	t.index %= 4
+}
+
+// RotateLeft gets the next rotation of a FillerCornerTile
+func (t *FillerCornerTile) RotateLeft() {
+	if t.index == 0 {
+		t.index = 3
+	} else {
+		t.index--
+	}
+}
+
+// CopyStructureTile creates a copy of the current FillerCornerTile
+func (t *FillerCornerTile) CopyStructureTile() StructureTile {
+	return &FillerCornerTile{t.index, nil, nil}
+}
+
+// TwoXTwoBlock is a Structure of 2x2 tiles
+type TwoXTwoBlock struct {
+	tiles [][]StructureTile
+}
+
+// NewTwoXTwoBlock creates a new TwoXTwoBlock Structure
+func NewTwoXTwoBlock() *TwoXTwoBlock {
+	block := new(TwoXTwoBlock)
+	block.tiles = [][]StructureTile{
+		{&FillerCornerTile{0, block, nil}, &FillerCornerTile{1, block, nil}},
+		{&FillerCornerTile{3, block, nil}, &FillerCornerTile{2, block, nil}},
+	}
+
+	return block
+}
+
+// Tiles return the Tiles associated with the TwoXTwoBlock
+func (b *TwoXTwoBlock) Tiles() [][]StructureTile {
+	return b.tiles
+}
+
+// RotateRight gets the next rotation of a TwoXTwoBlock
+func (b *TwoXTwoBlock) RotateRight() {
+	height := len(b.tiles)
+	width := len(b.tiles[0])
+	newTiles := make([][]StructureTile, width)
+	for i := 0; i < len(b.tiles[0]); i++ {
+		newTiles[i] = make([]StructureTile, height)
+	}
+
+	for i, tiles := range b.tiles {
+		for j, tile := range tiles {
+			newTiles[j][height-1-i] = tile
+			if tile != nil {
+				tile.RotateRight()
+			}
+		}
+	}
+
+	b.tiles = newTiles
+}
+
+// RotateLeft gets the next rotation of a TwoXTwoBlock
+func (b *TwoXTwoBlock) RotateLeft() {
+	height := len(b.tiles)
+	width := len(b.tiles[0])
+	newTiles := make([][]StructureTile, width)
+	for i := 0; i < len(b.tiles[0]); i++ {
+		newTiles[i] = make([]StructureTile, height)
+	}
+
+	for i, tiles := range b.tiles {
+		for j, tile := range tiles {
+			newTiles[width-1-j][i] = tile
+			if tile != nil {
+				tile.RotateLeft()
+			}
+		}
+	}
+
+	b.tiles = newTiles
+}
+
+// CopyStructure creates a deep copy of the current TwoXTwoBlock
+func (b *TwoXTwoBlock) CopyStructure() Structure {
+	bTiles := b.Tiles()
+
+	block := new(TwoXTwoBlock)
+	block.tiles = make([][]StructureTile, len(bTiles))
+	for i, tiles := range bTiles {
+		block.tiles[i] = make([]StructureTile, len(bTiles[0]))
+		for j, tile := range tiles {
+			if tile == nil {
+				block.tiles[i][j] = nil
+			} else {
+				block.tiles[i][j] = tile.CopyStructureTile()
+				block.tiles[i][j].SetGroup(block)
+			}
+		}
+	}
+
+	return block
 }

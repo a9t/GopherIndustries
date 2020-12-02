@@ -234,6 +234,10 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = &Belt{0, nil}; return nil }); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewTwoXTwoBlock(); return nil }); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
 		return err
@@ -259,7 +263,7 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			if w.ghost != nil {
-				copy := w.ghost.Copy()
+				copy := w.ghost.CopyStructure()
 				w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
 			}
 			return nil
