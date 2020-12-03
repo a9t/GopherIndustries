@@ -158,6 +158,16 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 					}
 					ghostMap[tileStructure] = tileStructure
 
+					if w.offsetY+i+w.cursorY >= worldY {
+						mode = DisplayModeGhostInvalid
+						break
+					}
+
+					if w.offsetX+j+w.cursorX >= worldX {
+						mode = DisplayModeGhostInvalid
+						break
+					}
+
 					switch w.game.WorldMap[w.offsetY+i+w.cursorY][w.offsetX+j+w.cursorX].(type) {
 					case StructureTile:
 						mode = DisplayModeGhostInvalid
@@ -231,7 +241,7 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'b', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = &Belt{0, nil}; return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewBelt(); return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
