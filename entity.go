@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 // DisplayMode indicates an entity's display mode
 type DisplayMode = uint8
@@ -11,9 +14,6 @@ const (
 
 	// DisplayModeMapSelected representation of selected item on the map
 	DisplayModeMapSelected
-
-	// DisplayModePreview representation in the preview section
-	DisplayModePreview
 
 	// DisplayModeGhostValid valid representation when placing on the map
 	DisplayModeGhostValid
@@ -51,7 +51,7 @@ type Structure interface {
 type BaseStructureTile struct {
 	rotationPosition int
 	maxRotations     int
-	symbols          []rune
+	symbolID         string
 
 	structure Structure
 	resource  *Resource
@@ -94,29 +94,31 @@ func (b *BaseStructureTile) SetGroup(s Structure) {
 
 // CopyStructureTile creates a deep copy of the current BaseStructureTile
 func (b *BaseStructureTile) CopyStructureTile() StructureTile {
-	return &BaseStructureTile{b.rotationPosition, b.maxRotations, b.symbols, nil, nil}
+	return &BaseStructureTile{b.rotationPosition, b.maxRotations, b.symbolID, nil, nil}
 }
 
 // Display create a string to be diplayed BaseStructureTile
 func (b *BaseStructureTile) Display(mode DisplayMode) string {
-	symbol := b.symbols[b.rotationPosition]
+	symbolConfig := GlobalDisplayConfigManager.GetSymbolConfig()
+	symbols := symbolConfig.Types[b.symbolID]
 
-	colorMode := 1
-	var symbolColor int
-	switch mode {
-	case DisplayModeMap:
-		symbolColor = 6
-	case DisplayModeMapSelected:
-		symbolColor = 7
-	case DisplayModeGhostValid:
-		symbolColor = 6
-	case DisplayModeGhostInvalid:
-		symbolColor = 1
-	default:
-		symbolColor = 6
+	var symbol rune
+	var width int
+	repeat := b.rotationPosition
+
+	for i, w := 0, 0; i < len(symbols); i += w {
+		symbol, width = utf8.DecodeRuneInString(symbols[i:])
+		w = width
+
+		if repeat == 0 {
+			break
+		}
+		repeat--
 	}
 
-	return fmt.Sprintf("\033[3%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
+	symbolColors := GlobalDisplayConfigManager.GetColorConfig().StructureColors[mode]
+
+	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColors[0], symbolColors[1], symbol)
 }
 
 // BaseStructure is a basic implementation of Structure
@@ -199,7 +201,7 @@ type FillerCornerTile struct {
 
 // NewFillerCornerTile creates a new *FillerCornerTile
 func NewFillerCornerTile(pos int) *FillerCornerTile {
-	tile := FillerCornerTile{BaseStructureTile{pos % 4, 4, []rune{'\u259B', '\u259C', '\u259F', '\u2599'}, nil, nil}}
+	tile := FillerCornerTile{BaseStructureTile{pos % 4, 4, "fillerCorner", nil, nil}}
 	return &tile
 }
 
@@ -226,21 +228,7 @@ type BeltTile struct {
 
 // NewBeltTile creates a new *BeltTile
 func NewBeltTile() *BeltTile {
-	runes := []rune{
-		'\u257D',
-		'\u2519',
-		'\u2515',
-		'\u257E',
-		'\u2516',
-		'\u250E',
-		'\u257F',
-		'\u250D',
-		'\u2511',
-		'\u257C',
-		'\u2512',
-		'\u251A',
-	}
-	return &BeltTile{BaseStructureTile{0, 12, runes, nil, nil}}
+	return &BeltTile{BaseStructureTile{0, 12, "belt", nil, nil}}
 }
 
 // Belt is the structure representation of a conveyor belt
