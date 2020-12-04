@@ -40,7 +40,8 @@ func newTGameWindowManager(g *gocui.Gui) *GameWindowManager {
 	m.errorWindow = &ErrorWindow{"Window too small to display game"}
 
 	gameWindow := NewGameWindow(&m)
-	mainMenuWindow := NewPrimaryMenuWindow(&m, gameWindow)
+	settingsWindow := NewSettingsWindow(&m)
+	mainMenuWindow := NewPrimaryMenuWindow(&m, gameWindow, settingsWindow)
 
 	m.SetTopWindow(mainMenuWindow)
 	g.SetManagerFunc(m.Layout)

@@ -254,17 +254,34 @@ type Resource struct {
 
 // Display displays the Resource tile
 func (t *Resource) Display(mode DisplayMode) string {
+	symbolConfig := GlobalDisplayConfigManager.GetSymbolConfig()
+	symbols := symbolConfig.Types["resource"]
+
 	var symbol rune
-	switch t.amount {
-	case 0:
-		symbol = ' '
-	case 1:
-		symbol = '\u2591'
-	case 2:
-		symbol = '\u2592'
-	case 3:
-		symbol = '\u2593'
+	var width int
+	repeat := t.amount
+
+	for i, w := 0, 0; i < len(symbols); i += w {
+		symbol, width = utf8.DecodeRuneInString(symbols[i:])
+		w = width
+
+		if repeat == 0 {
+			break
+		}
+		repeat--
 	}
+
+	// var symbol rune
+	// switch t.amount {
+	// case 0:
+	// 	symbol = ' '
+	// case 1:
+	// 	symbol = '\u2591'
+	// case 2:
+	// 	symbol = '\u2592'
+	// case 3:
+	// 	symbol = '\u2593'
+	// }
 
 	symbolColor := 33
 	colorMode := 4

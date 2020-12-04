@@ -9,26 +9,20 @@ import (
 // PrimaryMenuWindow a Window that handles the main game menu
 type PrimaryMenuWindow struct {
 	manager WindowManager
-	gw      *GameWindow
 	tick    int
 	widgets []Widget
 }
 
 // NewPrimaryMenuWindow creates a new MainMenuWindow
-func NewPrimaryMenuWindow(manager WindowManager, gw *GameWindow) *PrimaryMenuWindow {
+func NewPrimaryMenuWindow(manager WindowManager, gw *GameWindow, sw *SettingsWindow) *PrimaryMenuWindow {
 	var w PrimaryMenuWindow
 	w.manager = manager
 
 	w.widgets = append(w.widgets, newMascotWidget("Mascot", 1, 1))
 	w.widgets = append(w.widgets, newConveyorBeltWidget("ConveyorBelt", 24, 19))
-	w.widgets = append(w.widgets, newPrimaryMenuWidget("MainMenu", 24, 14, manager, gw))
+	w.widgets = append(w.widgets, newPrimaryMenuWidget("MainMenu", 24, 14, manager, gw, sw))
 
 	return &w
-}
-
-// SetGameWindow specifies the GameWindow associated with the game
-func (w *PrimaryMenuWindow) SetGameWindow(gw *GameWindow) {
-	w.gw = gw
 }
 
 // Layout displays the PrimaryMenuWindow
@@ -175,15 +169,16 @@ func (w *ConveyorBeltWidget) Layout(g *gocui.Gui) error {
 
 // PrimaryMenuWidget a Widget that display the main menu
 type PrimaryMenuWidget struct {
-	name       string
-	x, y       int
-	selection  int
-	manager    WindowManager
-	gameWindow *GameWindow
+	name           string
+	x, y           int
+	selection      int
+	manager        WindowManager
+	gameWindow     *GameWindow
+	settingsWindow *SettingsWindow
 }
 
-func newPrimaryMenuWidget(name string, x, y int, manager WindowManager, gameWindow *GameWindow) *PrimaryMenuWidget {
-	return &PrimaryMenuWidget{name: name, x: x, y: y, selection: 0, gameWindow: gameWindow, manager: manager}
+func newPrimaryMenuWidget(name string, x, y int, manager WindowManager, gameWindow *GameWindow, settingsWindow *SettingsWindow) *PrimaryMenuWidget {
+	return &PrimaryMenuWidget{name: name, x: x, y: y, selection: 0, gameWindow: gameWindow, manager: manager, settingsWindow: settingsWindow}
 }
 
 // Layout displays the PrimaryMenuWidget
@@ -216,6 +211,14 @@ func (w *PrimaryMenuWidget) Layout(g *gocui.Gui) error {
 					if w.gameWindow.HasGame() {
 						w.manager.SetTopWindow(w.gameWindow)
 					}
+					return nil
+				}); err != nil {
+				return err
+			}
+			if err := g.SetKeybinding(w.name, 's', gocui.ModNone,
+				func(g *gocui.Gui, v *gocui.View) error {
+					w.manager.SetTopWindow(w.settingsWindow)
+
 					return nil
 				}); err != nil {
 				return err

@@ -26,6 +26,14 @@ func newDisplayConfigManager() *DisplayConfigManager {
 
 	m.ColorConfigs = []*ColorConfig{eightColorConfig}
 
+	asciiSymbolConfig := new(SymbolConfig)
+	asciiSymbolConfig.Name = "ascii"
+	asciiSymbolConfig.Types = map[string]string{
+		"resource":     string([]rune{32, 188, 189, 190}),
+		"belt":         string([]rune{226, 224, 225, 234, 232, 233, 238, 236, 237, 244, 242, 243}),
+		"fillerCorner": "/\\/\\",
+	}
+
 	unicodeSymbolConfig := new(SymbolConfig)
 	unicodeSymbolConfig.Name = "unicode"
 	unicodeSymbolConfig.Types = map[string]string{
@@ -34,7 +42,7 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCorner": "\u259B\u259C\u259F\u2599",
 	}
 
-	m.SymbolConfigs = []*SymbolConfig{unicodeSymbolConfig}
+	m.SymbolConfigs = []*SymbolConfig{asciiSymbolConfig, unicodeSymbolConfig}
 
 	m.sColorConfig = m.ColorConfigs[0]
 	m.sSymbolConfig = m.SymbolConfigs[0]
