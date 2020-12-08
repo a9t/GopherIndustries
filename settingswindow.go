@@ -8,9 +8,8 @@ import (
 
 // SettingsWindow a Window that handles the game settings
 type SettingsWindow struct {
-	manager    WindowManager
-	widgets    []Widget
-	focusIndex int
+	manager WindowManager
+	widgets []Widget
 }
 
 // NewSettingsWindow creates a new SettingsWindow
@@ -20,12 +19,15 @@ func NewSettingsWindow(manager WindowManager) *SettingsWindow {
 
 	colorMenuWidget := &ColorMenuWidget{"ColorMenu", 0, nil, true}
 	symbolMenuWidget := &SymbolMenuWidget{"SymbolMenu", 0, nil, false}
+	sampleWidget := newSampleWidget()
 
 	colorMenuWidget.other = symbolMenuWidget
-	symbolMenuWidget.other = colorMenuWidget
+	symbolMenuWidget.other = sampleWidget
+	sampleWidget.other = colorMenuWidget
 
 	w.widgets = append(w.widgets, colorMenuWidget)
 	w.widgets = append(w.widgets, symbolMenuWidget)
+	w.widgets = append(w.widgets, sampleWidget)
 
 	return &w
 }
@@ -137,13 +139,13 @@ func (w *ColorMenuWidget) Layout(g *gocui.Gui) error {
 type SymbolMenuWidget struct {
 	name  string
 	sel   int
-	other *ColorMenuWidget
+	other *SampleWidget
 	focus bool
 }
 
 // Layout displays the SymbolMenuWidget
 func (w *SymbolMenuWidget) Layout(g *gocui.Gui) error {
-	v, err := g.SetView(w.name, 20, 1, 30, 4) //GlobalDisplayConfigManager
+	v, err := g.SetView(w.name, 1, 5, 12, 8)
 
 	if err == gocui.ErrUnknownView {
 		if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
@@ -216,4 +218,191 @@ func (w *SymbolMenuWidget) Layout(g *gocui.Gui) error {
 
 // SampleWidget sample display of the current color and symbol selections
 type SampleWidget struct {
+	name   string
+	sel    int
+	focus  bool
+	r      []*Resource
+	s      [][]Structure
+	sNames []string
+
+	other *ColorMenuWidget
+}
+
+func newSampleWidget() *SampleWidget {
+	w := new(SampleWidget)
+	w.name = "SampleWidget"
+	w.sel = -1
+
+	w.r = []*Resource{&Resource{0, 1}, &Resource{1, 1}, &Resource{2, 1}, &Resource{2, 1}}
+
+	w.s = make([][]Structure, 2)
+	w.s[0] = make([]Structure, 12)
+	for i := range w.s[0] {
+		w.s[0][i] = NewBelt()
+	}
+
+	for i, b := range w.s[0] {
+		for j := i; j < len(w.s[0]); j++ {
+			b.RotateRight()
+		}
+	}
+
+	w.s[1] = make([]Structure, 1)
+	w.s[1][0] = NewTwoXTwoBlock()
+
+	w.sNames = []string{"Belt", "TwoXTwo"}
+
+	return w
+}
+
+// Layout displays the SampleWidget
+func (w *SampleWidget) Layout(g *gocui.Gui) error {
+	resurceModes := []DisplayMode{DisplayModeMap, DisplayModeMapSelected}
+	structureModes := []DisplayMode{DisplayModeMap, DisplayModeMapSelected, DisplayModeGhostValid, DisplayModeGhostInvalid}
+
+	v, err := g.SetView(w.name, 20, 1, 40, 20)
+
+	if err == gocui.ErrUnknownView {
+		if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
+			func(g *gocui.Gui, v *gocui.View) error {
+				w.sel--
+				if w.sel < -1 {
+					w.sel = -1
+				}
+
+				GlobalDisplayConfigManager.SetSymbolConfig(w.sel)
+				return nil
+			}); err != nil {
+			return err
+		}
+		if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
+			func(g *gocui.Gui, v *gocui.View) error {
+				size := len(w.s)
+				w.sel++
+				if w.sel > size-1 {
+					w.sel = size - 1
+				}
+
+				GlobalDisplayConfigManager.SetSymbolConfig(w.sel)
+				return nil
+			}); err != nil {
+			return err
+		}
+		if err := g.SetKeybinding(w.name, gocui.KeyTab, gocui.ModNone,
+			func(g *gocui.Gui, v *gocui.View) error {
+				w.focus = false
+				w.other.focus = true
+
+				return nil
+			}); err != nil {
+			return err
+		}
+	}
+
+	if err == nil || err == gocui.ErrUnknownView {
+		v.Clear()
+		if _, err := g.SetViewOnTop(w.name); err != nil {
+			return err
+		}
+
+		if w.focus {
+			if _, err := g.SetCurrentView(w.name); err != nil {
+				return err
+			}
+		}
+
+		if w.sel == -1 {
+			colorPrefix := ""
+			colorSuffix := ""
+			if w.focus {
+				colorPrefix = "\033[31;1m"
+				colorSuffix = "\033[0m"
+			}
+
+			fmt.Fprintf(v, "%s>%s Resources\n", colorPrefix, colorSuffix)
+
+			for _, mode := range resurceModes {
+				fmt.Fprintf(v, "  ")
+				for _, resource := range w.r {
+					fmt.Fprintf(v, "%s", resource.Display(mode))
+				}
+				fmt.Fprintf(v, "\n")
+			}
+			fmt.Fprintf(v, "\n")
+		}
+
+		for i, structures := range w.s {
+			if i < w.sel {
+				continue
+			}
+
+			prefix := ' '
+			if w.sel == i {
+				prefix = '>'
+			}
+
+			colorPrefix := ""
+			colorSuffix := ""
+			if w.focus {
+				colorPrefix = "\033[31;1m"
+				colorSuffix = "\033[0m"
+			}
+
+			fmt.Fprintf(v, "%s%c%s %s\n", colorPrefix, prefix, colorSuffix, w.sNames[i])
+
+			for _, mode := range structureModes {
+				tileMatrix := w.getTiles(structures)
+				for _, tiles := range tileMatrix {
+					for _, tile := range tiles {
+						var msg string
+						if tile != nil {
+							msg = tile.Display(mode)
+						} else {
+							msg = " "
+						}
+
+						fmt.Fprintf(v, "%s", msg)
+					}
+					fmt.Fprintf(v, "\n")
+				}
+			}
+			fmt.Fprintf(v, "\n")
+		}
+	}
+
+	return nil
+}
+
+func (w *SampleWidget) getTiles(structures []Structure) [][]Tile {
+	totalW := 0
+	maxH := 0
+	for _, s := range structures {
+		tiles := s.Tiles()
+		h := len(tiles)
+		w := len(tiles[0])
+
+		if h > maxH {
+			maxH = h
+		}
+
+		totalW += w
+	}
+
+	responseTiles := make([][]Tile, maxH)
+	for i := range responseTiles {
+		responseTiles[i] = make([]Tile, totalW)
+	}
+
+	crtW := 0
+	for _, structure := range structures {
+		tileMatrix := structure.Tiles()
+		for i, tiles := range tileMatrix {
+			for j, tile := range tiles {
+				responseTiles[i][crtW+j] = tile
+			}
+		}
+		crtW += len(tileMatrix[0])
+	}
+
+	return responseTiles
 }
