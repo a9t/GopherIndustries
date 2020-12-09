@@ -271,18 +271,6 @@ func (t *Resource) Display(mode DisplayMode) string {
 		repeat--
 	}
 
-	// var symbol rune
-	// switch t.amount {
-	// case 0:
-	// 	symbol = ' '
-	// case 1:
-	// 	symbol = '\u2591'
-	// case 2:
-	// 	symbol = '\u2592'
-	// case 3:
-	// 	symbol = '\u2593'
-	// }
-
 	symbolColor := 33
 	colorMode := 4
 	if mode == DisplayModeMapSelected {
