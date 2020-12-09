@@ -244,6 +244,10 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewBelt(); return nil }); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding(w.name, 'r', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewThreeXThreeBlock(); return nil }); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewTwoXTwoBlock(); return nil }); err != nil {
 		return err

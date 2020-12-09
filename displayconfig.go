@@ -32,6 +32,8 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"resource":     string([]rune{32, 188, 189, 190}),
 		"belt":         string([]rune{226, 224, 225, 234, 232, 233, 238, 236, 237, 244, 242, 243}),
 		"fillerCorner": "/\\/\\",
+		"fillerMid":    "~|_|",
+		"fillerCenter": string([]rune{219}),
 	}
 
 	unicodeSymbolConfig := new(SymbolConfig)
@@ -40,6 +42,8 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"resource":     " \u2591\u2592\u2593",
 		"belt":         "\u257D\u2519\u2515\u257E\u2516\u250E\u257F\u250D\u2511\u257C\u2512\u251A",
 		"fillerCorner": "\u259B\u259C\u259F\u2599",
+		"fillerMid":    "\u2580\u2590\u2584\u258C",
+		"fillerCenter": "\u2588",
 	}
 
 	m.SymbolConfigs = []*SymbolConfig{asciiSymbolConfig, unicodeSymbolConfig}

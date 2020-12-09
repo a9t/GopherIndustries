@@ -205,6 +205,28 @@ func NewFillerCornerTile(pos int) *FillerCornerTile {
 	return &tile
 }
 
+// FillerMidTile replacement for FillerMidTile
+type FillerMidTile struct {
+	BaseStructureTile
+}
+
+// NewFillerMidTile creates a new *FillerMidTile
+func NewFillerMidTile(pos int) *FillerMidTile {
+	tile := FillerMidTile{BaseStructureTile{pos % 4, 4, "fillerMid", nil, nil}}
+	return &tile
+}
+
+// FillerCenterTile replacement for FillerCenterTile
+type FillerCenterTile struct {
+	BaseStructureTile
+}
+
+// NewFillerCenterTile creates a new *FillerMidTile
+func NewFillerCenterTile(pos int) *FillerCenterTile {
+	tile := FillerCenterTile{BaseStructureTile{pos % 4, 4, "fillerCenter", nil, nil}}
+	return &tile
+}
+
 // TwoXTwoBlock replacement for TwoXTwoBlock
 type TwoXTwoBlock struct {
 	BaseStructure
@@ -216,6 +238,23 @@ func NewTwoXTwoBlock() *TwoXTwoBlock {
 	block.tiles = [][]StructureTile{
 		{NewFillerCornerTile(0), NewFillerCornerTile(1)},
 		{NewFillerCornerTile(3), NewFillerCornerTile(2)},
+	}
+
+	return block
+}
+
+// ThreeXThreeBlock replacement for ThreeXThreeBlock
+type ThreeXThreeBlock struct {
+	BaseStructure
+}
+
+// NewThreeXThreeBlock creates a new *ThreeXThreeBlock
+func NewThreeXThreeBlock() *ThreeXThreeBlock {
+	block := new(ThreeXThreeBlock)
+	block.tiles = [][]StructureTile{
+		{NewFillerCornerTile(0), NewFillerMidTile(0), NewFillerCornerTile(1)},
+		{NewFillerMidTile(3), NewFillerCenterTile(0), NewFillerMidTile(1)},
+		{NewFillerCornerTile(3), NewFillerMidTile(2), NewFillerCornerTile(2)},
 	}
 
 	return block
