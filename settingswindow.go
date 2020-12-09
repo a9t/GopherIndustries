@@ -270,7 +270,6 @@ func (w *SampleWidget) Layout(g *gocui.Gui) error {
 					w.sel = -1
 				}
 
-				GlobalDisplayConfigManager.SetSymbolConfig(w.sel)
 				return nil
 			}); err != nil {
 			return err
@@ -283,7 +282,6 @@ func (w *SampleWidget) Layout(g *gocui.Gui) error {
 					w.sel = size - 1
 				}
 
-				GlobalDisplayConfigManager.SetSymbolConfig(w.sel)
 				return nil
 			}); err != nil {
 			return err
