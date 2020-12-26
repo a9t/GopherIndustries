@@ -251,9 +251,9 @@ func newSampleWidget() *SampleWidget {
 	w.s[1][0] = NewTwoXTwoBlock()
 
 	w.s[2] = make([]Structure, 1)
-	w.s[2][0] = NewThreeXThreeBlock()
+	w.s[2][0] = NewExtractor()
 
-	w.sNames = []string{"Belt", "TwoXTwo", "ThreeXThree"}
+	w.sNames = []string{"Belt", "TwoXTwo", "Extractor"}
 
 	return w
 }

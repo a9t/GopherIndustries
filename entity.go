@@ -311,22 +311,35 @@ func NewTwoXTwoBlock() *TwoXTwoBlock {
 	return block
 }
 
-// ThreeXThreeBlock replacement for ThreeXThreeBlock
-type ThreeXThreeBlock struct {
+// OutputTile tile that indicates an output end of a Structure
+type OutputTile struct {
+	BaseStructureTile
+}
+
+// NewOutputTile creates a new *OutputTile
+func NewOutputTile(pos int) *OutputTile {
+	tile := OutputTile{BaseStructureTile{pos % 4, 4, "output", nil, nil}}
+	return &tile
+}
+
+// Extractor Structure that extracts a RawResource from the ground
+type Extractor struct {
 	BaseStructure
 }
 
-// NewThreeXThreeBlock creates a new *ThreeXThreeBlock
-func NewThreeXThreeBlock() *ThreeXThreeBlock {
-	block := new(ThreeXThreeBlock)
+// NewExtractor creates a new *Extractor
+func NewExtractor() *Extractor {
+	block := new(Extractor)
 	block.tiles = [][]StructureTile{
 		{NewFillerCornerTile(0), NewFillerMidTile(0), NewFillerCornerTile(1)},
 		{NewFillerMidTile(3), NewFillerCenterTile(0), NewFillerMidTile(1)},
-		{NewFillerCornerTile(3), NewFillerMidTile(2), NewFillerCornerTile(2)},
+		{NewFillerCornerTile(3), NewOutputTile(0), NewFillerCornerTile(2)},
 	}
 
 	block.inputs = make([]Transfer, 0)
-	block.outputs = make([]Transfer, 0)
+	block.outputs = make([]Transfer, 1)
+
+	block.outputs[0] = Transfer{x: 1, y: 3, d: DirectionDown}
 
 	return block
 }

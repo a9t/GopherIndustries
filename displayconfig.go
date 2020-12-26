@@ -34,6 +34,8 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCorner": "/\\/\\",
 		"fillerMid":    "~|_|",
 		"fillerCenter": string([]rune{219}),
+		"input":        "V<A>",
+		"output":       "V<A>",
 	}
 
 	unicodeSymbolConfig := new(SymbolConfig)
@@ -44,9 +46,12 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCorner": "\u259B\u259C\u259F\u2599",
 		"fillerMid":    "\u2580\u2590\u2584\u258C",
 		"fillerCenter": "\u2588",
+		"input":        "\u2913\u21E5\u2912\u21E4",
+		"output":       "\u21D3\u21D0\u21D1\u21D2",
+		"output2":      "\u21A7\u21A6\u21A5\u21A4",
 	}
 
-	m.SymbolConfigs = []*SymbolConfig{asciiSymbolConfig, unicodeSymbolConfig}
+	m.SymbolConfigs = []*SymbolConfig{unicodeSymbolConfig, asciiSymbolConfig}
 
 	m.sColorConfig = m.ColorConfigs[0]
 	m.sSymbolConfig = m.SymbolConfigs[0]
