@@ -5,6 +5,27 @@ import (
 	"unicode/utf8"
 )
 
+// Direction indicates the movement direction
+type Direction = uint8
+
+const (
+	// DirectionDown indicates downward movement
+	DirectionDown Direction = iota
+	// DirectionLeft indicates leftward movement
+	DirectionLeft
+	// DirectionRight indicates rightward movement
+	DirectionRight
+	// DirectionUp idnicates upward movement
+	DirectionUp
+)
+
+// Transfer is a transfer point for the input/output of a Structure
+type Transfer struct {
+	x int
+	y int
+	d Direction
+}
+
 // DisplayMode indicates an entity's display mode
 type DisplayMode = uint8
 
@@ -123,7 +144,9 @@ func (b *BaseStructureTile) Display(mode DisplayMode) string {
 
 // BaseStructure is a basic implementation of Structure
 type BaseStructure struct {
-	tiles [][]StructureTile
+	tiles   [][]StructureTile
+	inputs  []Transfer
+	outputs []Transfer
 }
 
 // Tiles return the Tiles associated with the BaseStructure
@@ -149,6 +172,16 @@ func (s *BaseStructure) RotateRight() {
 		}
 	}
 
+	for _, input := range s.inputs {
+		input.x, input.y = height-1-input.y, input.x
+		input.d = (input.d + 1) % 4
+	}
+
+	for _, output := range s.outputs {
+		output.x, output.y = height-1-output.y, output.x
+		output.d = (output.d + 1) % 4
+	}
+
 	s.tiles = newTiles
 }
 
@@ -170,6 +203,16 @@ func (s *BaseStructure) RotateLeft() {
 		}
 	}
 
+	for _, input := range s.inputs {
+		input.x, input.y = input.y, width-1-input.x
+		input.d = (input.d + 3) % 4
+	}
+
+	for _, output := range s.outputs {
+		output.x, output.y = output.y, width-1-output.x
+		output.d = (output.d + 3) % 4
+	}
+
 	s.tiles = newTiles
 }
 
@@ -189,6 +232,16 @@ func (s *BaseStructure) CopyStructure() Structure {
 				structure.tiles[i][j].SetGroup(structure)
 			}
 		}
+	}
+
+	structure.inputs = make([]Transfer, len(s.inputs))
+	for i, input := range s.inputs {
+		structure.inputs[i] = input
+	}
+
+	structure.outputs = make([]Transfer, len(s.outputs))
+	for i, output := range s.outputs {
+		structure.outputs[i] = output
 	}
 
 	return structure
@@ -240,6 +293,9 @@ func NewTwoXTwoBlock() *TwoXTwoBlock {
 		{NewFillerCornerTile(3), NewFillerCornerTile(2)},
 	}
 
+	block.inputs = make([]Transfer, 0)
+	block.outputs = make([]Transfer, 0)
+
 	return block
 }
 
@@ -256,6 +312,9 @@ func NewThreeXThreeBlock() *ThreeXThreeBlock {
 		{NewFillerMidTile(3), NewFillerCenterTile(0), NewFillerMidTile(1)},
 		{NewFillerCornerTile(3), NewFillerMidTile(2), NewFillerCornerTile(2)},
 	}
+
+	block.inputs = make([]Transfer, 0)
+	block.outputs = make([]Transfer, 0)
 
 	return block
 }
@@ -282,7 +341,22 @@ func NewBelt() *Belt {
 		{NewBeltTile()},
 	}
 
+	block.inputs = make([]Transfer, 0)
+	block.outputs = make([]Transfer, 0)
+
 	return block
+}
+
+// CopyStructure creates a copy of the Belt
+func (b *Belt) CopyStructure() Structure {
+	belt := new(Belt)
+
+	structure := b.BaseStructure.CopyStructure()
+	if baseStructure, ok := structure.(*BaseStructure); ok {
+		belt.BaseStructure = *baseStructure
+	}
+
+	return belt
 }
 
 // Resource is a Tile containing natural resources
