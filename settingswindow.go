@@ -221,7 +221,7 @@ type SampleWidget struct {
 	name   string
 	sel    int
 	focus  bool
-	r      []*Resource
+	r      []*RawResource
 	s      [][]Structure
 	sNames []string
 
@@ -233,7 +233,7 @@ func newSampleWidget() *SampleWidget {
 	w.name = "SampleWidget"
 	w.sel = -1
 
-	w.r = []*Resource{&Resource{0, 1}, &Resource{1, 1}, &Resource{2, 1}, &Resource{3, 1}}
+	w.r = []*RawResource{&RawResource{0, 1}, &RawResource{1, 1}, &RawResource{2, 1}, &RawResource{3, 1}}
 
 	w.s = make([][]Structure, 3)
 	w.s[0] = make([]Structure, 12)

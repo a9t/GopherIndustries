@@ -35,8 +35,8 @@ func (g *Game) PlaceBuilding(y, x int, s Structure) bool {
 		for j, tile := range tiles {
 			t := g.WorldMap[y+i][x+j]
 			switch t.(type) {
-			case *Resource:
-				tile.SetUnderlyingResource(t.(*Resource))
+			case *RawResource:
+				tile.SetUnderlyingResource(t.(*RawResource))
 				g.WorldMap[y+i][x+j] = tile
 			}
 		}
@@ -58,13 +58,13 @@ func GenerateGame(height int, width int) *Game {
 		for j := 0; j < width; j++ {
 			switch r := rand.Float32(); {
 			case r < 0.8:
-				worldMap[i][j] = &Resource{0, 1}
+				worldMap[i][j] = &RawResource{0, 1}
 			case r < 0.9:
-				worldMap[i][j] = &Resource{1, 1}
+				worldMap[i][j] = &RawResource{1, 1}
 			case r < 0.98:
-				worldMap[i][j] = &Resource{2, 1}
+				worldMap[i][j] = &RawResource{2, 1}
 			default:
-				worldMap[i][j] = &Resource{3, 1}
+				worldMap[i][j] = &RawResource{3, 1}
 			}
 		}
 	}

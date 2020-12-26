@@ -55,8 +55,8 @@ type StructureTile interface {
 	RotateRight()
 	Group() Structure
 	SetGroup(Structure)
-	UnderlyingResource() *Resource
-	SetUnderlyingResource(*Resource)
+	UnderlyingResource() *RawResource
+	SetUnderlyingResource(*RawResource)
 	CopyStructureTile() StructureTile
 }
 
@@ -66,6 +66,8 @@ type Structure interface {
 	RotateLeft()
 	RotateRight()
 	CopyStructure() Structure
+	Outputs() []Transfer
+	Inputs() []Transfer
 }
 
 // BaseStructureTile one Tile component of a Structure
@@ -75,7 +77,7 @@ type BaseStructureTile struct {
 	symbolID         string
 
 	structure Structure
-	resource  *Resource
+	resource  *RawResource
 }
 
 // RotateRight gets the next rotation of a BaseStructureTile
@@ -94,12 +96,12 @@ func (b *BaseStructureTile) RotateLeft() {
 }
 
 // UnderlyingResource provides the resource beneath the BaseStructureTile
-func (b *BaseStructureTile) UnderlyingResource() *Resource {
+func (b *BaseStructureTile) UnderlyingResource() *RawResource {
 	return b.resource
 }
 
 // SetUnderlyingResource sets the resource beneath the BaseStructureTile
-func (b *BaseStructureTile) SetUnderlyingResource(r *Resource) {
+func (b *BaseStructureTile) SetUnderlyingResource(r *RawResource) {
 	b.resource = r
 }
 
@@ -147,6 +149,16 @@ type BaseStructure struct {
 	tiles   [][]StructureTile
 	inputs  []Transfer
 	outputs []Transfer
+}
+
+// Inputs return Transfer point outside the Structure where the inputs are expected to come from
+func (s *BaseStructure) Inputs() []Transfer {
+	return s.inputs
+}
+
+// Outputs return Transfer point inside the Structure where the outputs are generated
+func (s *BaseStructure) Outputs() []Transfer {
+	return s.outputs
 }
 
 // Tiles return the Tiles associated with the BaseStructure
@@ -322,16 +334,27 @@ func NewThreeXThreeBlock() *ThreeXThreeBlock {
 // BeltTile is the map representation of a conveyor belt
 type BeltTile struct {
 	BaseStructureTile
+	product *Product
+}
+
+// Display create a string to be diplayed for the BellTile
+func (b *BeltTile) Display(mode DisplayMode) string {
+	if b.product != nil {
+		return string([]rune{b.product.representation})
+	}
+
+	return b.BaseStructureTile.Display(mode)
 }
 
 // NewBeltTile creates a new *BeltTile
 func NewBeltTile() *BeltTile {
-	return &BeltTile{BaseStructureTile{0, 12, "belt", nil, nil}}
+	return &BeltTile{BaseStructureTile{0, 12, "belt", nil, nil}, nil}
 }
 
 // Belt is the structure representation of a conveyor belt
 type Belt struct {
 	BaseStructure
+	rotationPosition int
 }
 
 // NewBelt creates a new *Belt
@@ -341,8 +364,11 @@ func NewBelt() *Belt {
 		{NewBeltTile()},
 	}
 
-	block.inputs = make([]Transfer, 0)
-	block.outputs = make([]Transfer, 0)
+	block.inputs = make([]Transfer, 1)
+	block.outputs = make([]Transfer, 1)
+
+	block.outputs[0] = Transfer{0, 0, 0}
+	block.inputs[0] = Transfer{0, -1, 0}
 
 	return block
 }
@@ -350,6 +376,7 @@ func NewBelt() *Belt {
 // CopyStructure creates a copy of the Belt
 func (b *Belt) CopyStructure() Structure {
 	belt := new(Belt)
+	belt.rotationPosition = b.rotationPosition
 
 	structure := b.BaseStructure.CopyStructure()
 	if baseStructure, ok := structure.(*BaseStructure); ok {
@@ -359,14 +386,54 @@ func (b *Belt) CopyStructure() Structure {
 	return belt
 }
 
-// Resource is a Tile containing natural resources
-type Resource struct {
+// RotateRight gets the next rotation of a Belt
+func (b *Belt) RotateRight() {
+	b.rotationPosition++
+	b.rotationPosition %= 12
+
+	b.tiles[0][0].RotateRight()
+
+	b.setTransfers()
+}
+
+// RotateLeft gets the next rotation of a Belt
+func (b *Belt) RotateLeft() {
+	b.rotationPosition += 11
+	b.rotationPosition %= 12
+
+	b.tiles[0][0].RotateRight()
+
+	b.setTransfers()
+}
+
+func (b *Belt) setTransfers() {
+	b.inputs[0].d = uint8(b.rotationPosition) / 3
+	b.outputs[0].d = uint8(b.rotationPosition) % 3
+
+	switch b.inputs[0].d {
+	case DirectionDown:
+		b.inputs[0].x = 0
+		b.inputs[0].y = -1
+	case DirectionLeft:
+		b.inputs[0].x = 1
+		b.inputs[0].y = 0
+	case DirectionUp:
+		b.inputs[0].x = 0
+		b.inputs[0].y = 1
+	case DirectionRight:
+		b.inputs[0].x = -1
+		b.inputs[0].y = 0
+	}
+}
+
+// RawResource is a Tile containing natural resources
+type RawResource struct {
 	amount   int
 	resource int
 }
 
 // Display displays the Resource tile
-func (t *Resource) Display(mode DisplayMode) string {
+func (t *RawResource) Display(mode DisplayMode) string {
 	symbolConfig := GlobalDisplayConfigManager.GetSymbolConfig()
 	symbols := symbolConfig.Types["resource"]
 
