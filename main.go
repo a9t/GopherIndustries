@@ -13,7 +13,6 @@ type GameWindowManager struct {
 
 	errorWindow Window
 	topWindow   Window
-	gameWindow  GameWindow
 }
 
 // SetTopWindow specifies which window is on top to be displayed
@@ -31,7 +30,7 @@ func (m *GameWindowManager) Layout(g *gocui.Gui) error {
 	return m.topWindow.Layout(g)
 }
 
-func newTGameWindowManager(g *gocui.Gui) *GameWindowManager {
+func newGameWindowManager(g *gocui.Gui) (*GameWindowManager, *GameWindow) {
 	var m GameWindowManager
 
 	m.minX = 60
@@ -52,10 +51,11 @@ func newTGameWindowManager(g *gocui.Gui) *GameWindowManager {
 		})
 	g.SetKeybinding("", gocui.KeyBackspace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
+			gameWindow.SetRunning(false)
 			m.SetTopWindow(mainMenuWindow)
 			return nil
 		})
-	return &m
+	return &m, gameWindow
 }
 
 func main() {
@@ -66,9 +66,10 @@ func main() {
 	}
 	defer g.Close()
 
-	m := newTGameWindowManager(g)
+	m, gw := newGameWindowManager(g)
 
 	go uiLoop(m, g)
+	go logicLoop(gw)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalln(err)
@@ -76,11 +77,21 @@ func main() {
 }
 
 func uiLoop(m *GameWindowManager, g *gocui.Gui) {
-	ticker := time.NewTicker(time.Millisecond * 10)
+	ticker := time.NewTicker(time.Millisecond * 20)
 	defer ticker.Stop()
 
 	for {
 		<-ticker.C
 		g.Update(m.Layout)
+	}
+}
+
+func logicLoop(w *GameWindow) {
+	ticker := time.NewTicker(time.Millisecond * 10)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		w.Tick()
 	}
 }

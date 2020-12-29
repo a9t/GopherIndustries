@@ -4,9 +4,146 @@ import (
 	"math/rand"
 )
 
+type position struct {
+	x int
+	y int
+}
+
 // Game implementation
 type Game struct {
 	WorldMap [][]Tile
+	roots    map[Structure]position
+}
+
+// GetStructureAt returns the Structure that covers the location and its top right corner
+func (g *Game) GetStructureAt(y, x int) (Structure, int, int) {
+	if y < 0 || y >= len(g.WorldMap) {
+		return nil, -1, -1
+	}
+
+	if x < 0 || x >= len(g.WorldMap[0]) {
+		return nil, -1, -1
+	}
+
+	tile := g.WorldMap[y][x]
+
+	switch t := tile.(type) {
+	case StructureTile:
+		s := t.Group()
+
+		for yy, tiles := range s.Tiles() {
+			for xx, tile := range tiles {
+				if t == tile {
+					return s, y - yy, x - xx
+				}
+			}
+		}
+	}
+	return nil, -1, -1
+}
+
+// Tick advances the internal state of the game
+func (g *Game) Tick() {
+	inProgress := make(map[Structure]position)
+	for s, p := range g.roots {
+		inProgress[s] = p
+
+	}
+
+	for len(inProgress) != 0 {
+		var crt Structure
+		var p position
+
+		for crt, p = range inProgress {
+			break
+		}
+		delete(inProgress, crt)
+
+		_, hasProduct := crt.CanRetrieveProduct()
+
+		crt.Tick()
+		for _, input := range crt.Inputs() {
+			x := p.x + input.x
+			y := p.y + input.y
+
+			neighbour, ny, nx := g.GetNeighbour(y, x, input.d, true)
+			if neighbour == nil {
+				continue
+			}
+
+			// the Structure is a valid input provider
+			inProgress[neighbour] = position{x: nx, y: ny}
+
+			if hasProduct {
+				// current structure has a product, so it cannot consume input
+				continue
+			}
+
+			retrieved, _ := neighbour.CanRetrieveProduct()
+			if retrieved == nil {
+				// input provider has no item, so no need to look into it anymore
+				break
+			}
+
+			// check and see if the current structure can consume Product
+			if !crt.CanAcceptProduct(retrieved) {
+				break
+			}
+
+			retrieved, _ = neighbour.RetrieveProduct()
+			crt.AcceptProduct(retrieved)
+			break
+		}
+	}
+}
+
+// GetNeighbour returns a Structure that is linked to the Transfer point (in or out)
+func (g *Game) GetNeighbour(y int, x int, d Direction, in bool) (Structure, int, int) {
+	correction := 1
+	if !in {
+		correction = -1
+	}
+
+	switch d {
+	case DirectionDown:
+		y -= correction
+	case DirectionLeft:
+		x += correction
+	case DirectionUp:
+		y += correction
+	case DirectionRight:
+		x -= correction
+	}
+
+	neighbour, ny, nx := g.GetStructureAt(y, x)
+	if neighbour == nil {
+		return nil, -1, -1
+	}
+
+	var transfers []Transfer
+	if in {
+		transfers = neighbour.Outputs()
+	} else {
+		transfers = neighbour.Inputs()
+	}
+
+	for _, transfer := range transfers {
+		tx := nx + transfer.x
+		if x != tx {
+			continue
+		}
+
+		ty := ny + transfer.y
+		if y != ty {
+			continue
+		}
+
+		if transfer.d == d {
+			return neighbour, ny, nx
+		}
+	}
+
+	return nil, -1, -1
 }
 
 // PlaceBuilding puts a Building at the specified location on the map
@@ -42,6 +179,35 @@ func (g *Game) PlaceBuilding(y, x int, s Structure) bool {
 		}
 	}
 
+	for _, input := range s.Inputs() {
+		sx := input.x + x
+		sy := input.y + y
+
+		neighbour, _, _ := g.GetNeighbour(sy, sx, input.d, true)
+		if neighbour == nil {
+			continue
+		}
+
+		// current structure is a consumer, so the neighbour cannot be a root
+		delete(g.roots, neighbour)
+	}
+
+	isRoot := true
+	for _, output := range s.Outputs() {
+		sx := output.x + x
+		sy := output.y + y
+
+		neighbour, _, _ := g.GetNeighbour(sy, sx, output.d, false)
+		if neighbour != nil {
+			isRoot = false
+			break
+		}
+	}
+
+	if isRoot {
+		g.roots[s] = position{x: x, y: y}
+	}
+
 	return true
 }
 
@@ -58,16 +224,20 @@ func GenerateGame(height int, width int) *Game {
 		for j := 0; j < width; j++ {
 			switch r := rand.Float32(); {
 			case r < 0.8:
-				worldMap[i][j] = &RawResource{0, 1}
+				worldMap[i][j] = &RawResource{0, -1}
 			case r < 0.9:
-				worldMap[i][j] = &RawResource{1, 1}
+				worldMap[i][j] = &RawResource{1, 0}
 			case r < 0.98:
-				worldMap[i][j] = &RawResource{2, 1}
+				worldMap[i][j] = &RawResource{2, 0}
 			default:
-				worldMap[i][j] = &RawResource{3, 1}
+				worldMap[i][j] = &RawResource{3, 0}
 			}
 		}
 	}
 
-	return &Game{worldMap}
+	g := new(Game)
+	g.WorldMap = worldMap
+	g.roots = make(map[Structure]position)
+
+	return g
 }

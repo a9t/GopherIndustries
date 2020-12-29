@@ -235,7 +235,7 @@ func newSampleWidget() *SampleWidget {
 
 	w.r = []*RawResource{&RawResource{0, 1}, &RawResource{1, 1}, &RawResource{2, 1}, &RawResource{3, 1}}
 
-	w.s = make([][]Structure, 3)
+	w.s = make([][]Structure, 2)
 	w.s[0] = make([]Structure, 12)
 	for i := range w.s[0] {
 		w.s[0][i] = NewBelt()
@@ -248,12 +248,9 @@ func newSampleWidget() *SampleWidget {
 	}
 
 	w.s[1] = make([]Structure, 1)
-	w.s[1][0] = NewTwoXTwoBlock()
+	w.s[1][0] = NewExtractor()
 
-	w.s[2] = make([]Structure, 1)
-	w.s[2][0] = NewExtractor()
-
-	w.sNames = []string{"Belt", "TwoXTwo", "Extractor"}
+	w.sNames = []string{"Belt", "Extractor"}
 
 	return w
 }

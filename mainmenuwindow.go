@@ -201,6 +201,7 @@ func (w *PrimaryMenuWidget) Layout(g *gocui.Gui) error {
 					game := GenerateGame(120, 100)
 					w.gameWindow.SetGame(game)
 					w.manager.SetTopWindow(w.gameWindow)
+					w.gameWindow.SetRunning(true)
 
 					return nil
 				}); err != nil {
@@ -210,6 +211,7 @@ func (w *PrimaryMenuWidget) Layout(g *gocui.Gui) error {
 				func(g *gocui.Gui, v *gocui.View) error {
 					if w.gameWindow.HasGame() {
 						w.manager.SetTopWindow(w.gameWindow)
+						w.gameWindow.SetRunning(true)
 					}
 					return nil
 				}); err != nil {

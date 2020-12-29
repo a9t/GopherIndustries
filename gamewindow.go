@@ -10,7 +10,8 @@ import (
 type GameWindow struct {
 	manager WindowManager
 
-	hasGame bool
+	game    *Game
+	running bool
 
 	mainWindow Window
 
@@ -22,19 +23,39 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	var w GameWindow
 	w.manager = manager
 
+	var structureWidget StructureWidget
+	structureWidget.name = "Structure"
+	structureWidget.width = 15
+	structureWidget.height = 5
+
 	var gameMapWidget GameMapWidget
 	gameMapWidget.name = "GameMap"
 	gameMapWidget.maxViewX = 80
 	gameMapWidget.maxViewY = 80
+	gameMapWidget.reservedX = structureWidget.width
+	gameMapWidget.structureWidget = &structureWidget
 
 	w.widgets = append(w.widgets, &gameMapWidget)
+	w.widgets = append(w.widgets, &structureWidget)
 
 	return &w
 }
 
+// Tick advances the game state
+func (w *GameWindow) Tick() {
+	if w.running {
+		w.game.Tick()
+	}
+}
+
+// SetRunning indicates if the game is running or not, having ticks pass through or not
+func (w *GameWindow) SetRunning(state bool) {
+	w.running = state
+}
+
 // SetGame sets a game to be displayed in the GameWindow
 func (w *GameWindow) SetGame(g *Game) {
-	w.hasGame = true
+	w.game = g
 	for _, widget := range w.widgets {
 		widget.SetGame(g)
 	}
@@ -42,7 +63,7 @@ func (w *GameWindow) SetGame(g *Game) {
 
 // HasGame indicates if there is a Game associated with the GameWindow
 func (w *GameWindow) HasGame() bool {
-	return w.hasGame
+	return w.game != nil
 }
 
 // Layout displays the GameWindow
@@ -69,13 +90,67 @@ func (w *GameWindow) Layout(g *gocui.Gui) error {
 	return nil
 }
 
+// StructureWidget a GameWidget that display information about a Structure
+type StructureWidget struct {
+	name   string
+	width  int
+	height int
+	s      Structure
+}
+
+// Layout displays the StructureWidget
+func (w *StructureWidget) Layout(g *gocui.Gui) error {
+	maxX, _ := g.Size()
+
+	v, err := g.SetView(w.name, maxX-w.width, 0, maxX-1, w.height)
+	if err == nil || err == gocui.ErrUnknownView {
+		if _, err := g.SetViewOnTop(w.name); err != nil {
+			return err
+		}
+
+		v.Title = w.name
+	}
+
+	v.Clear()
+
+	var structureType string
+	switch s := w.s.(type) {
+	case *Belt:
+		structureType = fmt.Sprintf("B %d,%d,%d:%d,%d,%d", s.inputs[0].x, s.inputs[0].y, s.inputs[0].d, s.outputs[0].x, s.outputs[0].y, s.outputs[0].d)
+	case *Extractor:
+		structureType = fmt.Sprintf("E %d,%d,%d", s.outputs[0].x, s.outputs[0].y, s.outputs[0].d)
+	default:
+		structureType = " - "
+	}
+	fmt.Fprintf(v, "%s\n", structureType)
+
+	if w.s != nil {
+		product, _ := w.s.CanRetrieveProduct()
+		var productName string
+		if product == nil {
+			productName = "-"
+		} else {
+			productName = product.name
+		}
+		fmt.Fprintf(v, "Prod: %s\n", productName)
+	}
+
+	return nil
+}
+
+// SetGame sets the Game associated with the GameMapWidget
+func (w *StructureWidget) SetGame(game *Game) {
+}
+
 // GameMapWidget a GameWidget that displays the game map
 type GameMapWidget struct {
 	name                 string
 	maxViewX, maxViewY   int
 	reservedX, reservedY int
 
-	game             *Game
+	game            *Game
+	structureWidget *StructureWidget
+
 	cursorX, cursorY int
 	offsetX, offsetY int
 	ghost            Structure
@@ -145,6 +220,7 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		mode := DisplayModeGhostValid
 
 		if w.ghost != nil {
+			w.structureWidget.s = w.ghost
 			ghost = w.ghost.Tiles()
 
 			ghostHeight = len(ghost)
@@ -181,7 +257,10 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		} else {
 			switch selectTile := w.game.WorldMap[w.offsetY+w.cursorY][w.offsetX+w.cursorX].(type) {
 			case StructureTile:
-				for _, tiles := range StructureTile(selectTile).Group().Tiles() {
+				structure := selectTile.Group()
+				w.structureWidget.s = structure
+
+				for _, tiles := range structure.Tiles() {
 					for _, tile := range tiles {
 						selectedMap[tile] = tile
 					}
@@ -246,10 +325,6 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 'r', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewExtractor(); return nil }); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewTwoXTwoBlock(); return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,

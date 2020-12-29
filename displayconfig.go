@@ -48,7 +48,6 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCenter": "\u2588",
 		"input":        "\u2913\u21E5\u2912\u21E4",
 		"output":       "\u21D3\u21D0\u21D1\u21D2",
-		"output2":      "\u21A7\u21A6\u21A5\u21A4",
 	}
 
 	m.SymbolConfigs = []*SymbolConfig{unicodeSymbolConfig, asciiSymbolConfig}
