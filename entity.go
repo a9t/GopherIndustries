@@ -20,10 +20,10 @@ const (
 	DirectionDown Direction = iota
 	// DirectionLeft indicates leftward movement
 	DirectionLeft
-	// DirectionRight indicates rightward movement
-	DirectionRight
 	// DirectionUp idnicates upward movement
 	DirectionUp
+	// DirectionRight indicates rightward movement
+	DirectionRight
 )
 
 // Transfer is a transfer point for the input/output of a Structure
