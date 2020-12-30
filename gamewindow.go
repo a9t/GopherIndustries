@@ -6,6 +6,10 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+type state struct {
+	ghost Structure
+}
+
 // GameWindow a Window that manages all the GameWidget-s
 type GameWindow struct {
 	manager WindowManager
@@ -20,23 +24,26 @@ type GameWindow struct {
 
 // NewGameWindow creates a new GameWindow
 func NewGameWindow(manager WindowManager) *GameWindow {
+	s := new(state)
+
 	var w GameWindow
 	w.manager = manager
 
-	var structureWidget StructureWidget
-	structureWidget.name = "Structure"
-	structureWidget.width = 15
-	structureWidget.height = 5
+	var infoWidget InfoWidget
+	infoWidget.name = "Info"
+	infoWidget.width = 15
+	infoWidget.height = 5
+	infoWidget.s = s
 
 	var gameMapWidget GameMapWidget
 	gameMapWidget.name = "GameMap"
 	gameMapWidget.maxViewX = 80
 	gameMapWidget.maxViewY = 80
-	gameMapWidget.reservedX = structureWidget.width
-	gameMapWidget.structureWidget = &structureWidget
+	gameMapWidget.reservedX = infoWidget.width
+	gameMapWidget.s = s
 
 	w.widgets = append(w.widgets, &gameMapWidget)
-	w.widgets = append(w.widgets, &structureWidget)
+	w.widgets = append(w.widgets, &infoWidget)
 
 	return &w
 }
@@ -90,16 +97,16 @@ func (w *GameWindow) Layout(g *gocui.Gui) error {
 	return nil
 }
 
-// StructureWidget a GameWidget that display information about a Structure
-type StructureWidget struct {
+// InfoWidget a GameWidget that displays general information about the cursor
+type InfoWidget struct {
 	name   string
 	width  int
 	height int
-	s      Structure
+	s      *state
 }
 
 // Layout displays the StructureWidget
-func (w *StructureWidget) Layout(g *gocui.Gui) error {
+func (w *InfoWidget) Layout(g *gocui.Gui) error {
 	maxX, _ := g.Size()
 
 	v, err := g.SetView(w.name, maxX-w.width, 0, maxX-1, w.height)
@@ -114,7 +121,7 @@ func (w *StructureWidget) Layout(g *gocui.Gui) error {
 	v.Clear()
 
 	var structureType string
-	switch s := w.s.(type) {
+	switch s := w.s.ghost.(type) {
 	case *Belt:
 		structureType = fmt.Sprintf("B %d,%d,%d:%d,%d,%d", s.inputs[0].x, s.inputs[0].y, s.inputs[0].d, s.outputs[0].x, s.outputs[0].y, s.outputs[0].d)
 	case *Extractor:
@@ -124,8 +131,8 @@ func (w *StructureWidget) Layout(g *gocui.Gui) error {
 	}
 	fmt.Fprintf(v, "%s\n", structureType)
 
-	if w.s != nil {
-		product, _ := w.s.CanRetrieveProduct()
+	if w.s.ghost != nil {
+		product, _ := w.s.ghost.CanRetrieveProduct()
 		var productName string
 		if product == nil {
 			productName = "-"
@@ -139,7 +146,7 @@ func (w *StructureWidget) Layout(g *gocui.Gui) error {
 }
 
 // SetGame sets the Game associated with the GameMapWidget
-func (w *StructureWidget) SetGame(game *Game) {
+func (w *InfoWidget) SetGame(game *Game) {
 }
 
 // GameMapWidget a GameWidget that displays the game map
@@ -148,15 +155,15 @@ type GameMapWidget struct {
 	maxViewX, maxViewY   int
 	reservedX, reservedY int
 
-	game            *Game
-	structureWidget *StructureWidget
+	game *Game
 
 	offsetX, offsetY int
-	ghost            Structure
+	s                *state
 }
 
 // SetGame sets the Game associated with the GameMapWidget
 func (w *GameMapWidget) SetGame(game *Game) {
+	w.s.ghost = nil
 	w.game = game
 }
 
@@ -230,9 +237,8 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 
 	cursorX, cursorY := w.game.GetCursor()
 
-	if w.ghost != nil {
-		w.structureWidget.s = w.ghost
-		ghost = w.ghost.Tiles()
+	if w.s.ghost != nil {
+		ghost = w.s.ghost.Tiles()
 
 		ghostHeight = len(ghost)
 		ghostWidth = len(ghost[0])
@@ -265,7 +271,6 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		switch selectTile := w.game.WorldMap[cursorY][cursorX].(type) {
 		case StructureTile:
 			structure := selectTile.Group()
-			w.structureWidget.s = structure
 
 			for _, tiles := range structure.Tiles() {
 				for _, tile := range tiles {
@@ -279,7 +284,7 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 
 	for i := w.offsetY; i < worldMaxY; i++ {
 		for j := w.offsetX; j < worldMaxX; j++ {
-			if w.ghost != nil &&
+			if w.s.ghost != nil &&
 				cursorY <= i &&
 				i < cursorY+ghostHeight &&
 				cursorX <= j &&
@@ -319,25 +324,25 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'b', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewBelt(); return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewBelt(); return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'r', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewExtractor(); return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewExtractor(); return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewChest(); return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewChest(); return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = nil; return nil }); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'e', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.ghost != nil {
-				w.ghost.RotateRight()
+			if w.s.ghost != nil {
+				w.s.ghost.RotateRight()
 			}
 			return nil
 		}); err != nil {
@@ -345,8 +350,8 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.ghost != nil {
-				w.ghost.RotateLeft()
+			if w.s.ghost != nil {
+				w.s.ghost.RotateLeft()
 			}
 			return nil
 		}); err != nil {
@@ -354,8 +359,8 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.ghost != nil {
-				copy := w.ghost.CopyStructure()
+			if w.s.ghost != nil {
+				copy := w.s.ghost.CopyStructure()
 				x, y := w.game.GetCursor()
 				w.game.PlaceBuilding(y, x, copy)
 			}
