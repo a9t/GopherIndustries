@@ -327,6 +327,10 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewExtractor(); return nil }); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error { w.ghost = NewChest(); return nil }); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error { w.ghost = nil; return nil }); err != nil {
 		return err

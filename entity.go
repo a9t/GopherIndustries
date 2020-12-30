@@ -10,6 +10,8 @@ const (
 	CycleSizeExtractor int = 40
 	// CycleSizeBelt the cycle size for the belt
 	CycleSizeBelt int = 20
+	// ChestMaxStorage the maximum number of products stored in a chest
+	ChestMaxStorage int = 100
 )
 
 // Direction indicates the movement direction
@@ -423,6 +425,98 @@ func (e *Extractor) Tick() {
 
 	rawResource.amount--
 	e.product = GlobalProductFactory.GetProduct(rawResource.resource)
+}
+
+// ChestTile is the map representation of a storage chest
+type ChestTile struct {
+	BaseStructureTile
+}
+
+// NewChestTile creates a new *ChestTile
+func NewChestTile() *ChestTile {
+	return &ChestTile{BaseStructureTile{0, 1, "chest", nil, nil, nil}}
+}
+
+// Chest is the structure representation of a storage chest
+type Chest struct {
+	BaseStructure
+	Products map[*Product]int
+	Total    int
+}
+
+// NewChest creates a new *Chest
+func NewChest() *Chest {
+	chest := new(Chest)
+	chest.tiles = [][]StructureTile{
+		{NewChestTile()},
+	}
+	chest.Products = make(map[*Product]int)
+
+	chest.inputs = make([]Transfer, 4)
+	chest.outputs = make([]Transfer, 0)
+
+	chest.inputs[0] = Transfer{0, 0, DirectionDown}
+	chest.inputs[1] = Transfer{0, 0, DirectionLeft}
+	chest.inputs[2] = Transfer{0, 0, DirectionUp}
+	chest.inputs[3] = Transfer{0, 0, DirectionRight}
+
+	return chest
+}
+
+// Tick does nothing for Chest, no internal state to update
+func (c *Chest) Tick() {
+}
+
+// CanRetrieveProduct does nothing for Chest, it does not allow auto retrieval
+func (c *Chest) CanRetrieveProduct() (*Product, bool) {
+	return nil, false
+}
+
+// RetrieveProduct does nothing for Chest, it does not allow auto retrieval
+func (c *Chest) RetrieveProduct() (*Product, bool) {
+	return nil, false
+}
+
+// CanAcceptProduct indicates if the Chest has space for another Product
+func (c *Chest) CanAcceptProduct(*Product) bool {
+	return c.Total < ChestMaxStorage
+}
+
+// AcceptProduct passes the Product to the Chest
+func (c *Chest) AcceptProduct(p *Product) bool {
+	if c.Total >= ChestMaxStorage {
+		return false
+	}
+
+	val, present := c.Products[p]
+	if present {
+		c.Products[p] = val + 1
+	} else {
+		c.Products[p] = 1
+	}
+
+	c.Total++
+
+	return true
+}
+
+// CopyStructure creates a copy of the Chest
+func (c *Chest) CopyStructure() Structure {
+	chest := new(Chest)
+	chest.Products = make(map[*Product]int)
+
+	baseStructure := c.BaseStructure.copyStructure(chest)
+	chest.BaseStructure = *baseStructure
+
+	return chest
+}
+
+// RotateRight does nothing for a Chest
+func (c *Chest) RotateRight() {
+}
+
+// RotateLeft does nothing for a Chest
+func (c *Chest) RotateLeft() {
 }
 
 // BeltTile is the map representation of a conveyor belt

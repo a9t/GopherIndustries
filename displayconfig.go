@@ -36,6 +36,7 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCenter": string([]rune{219}),
 		"input":        "V<A>",
 		"output":       "V<A>",
+		"chest":        "+",
 	}
 
 	unicodeSymbolConfig := new(SymbolConfig)
@@ -48,6 +49,7 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		"fillerCenter": "\u2588",
 		"input":        "\u2913\u21E5\u2912\u21E4",
 		"output":       "\u21D3\u21D0\u21D1\u21D2",
+		"chest":        "\u25A3",
 	}
 
 	m.SymbolConfigs = []*SymbolConfig{unicodeSymbolConfig, asciiSymbolConfig}
