@@ -186,117 +186,119 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 	}
 
 	v, err := g.SetView(w.name, offsetX, offsetY, offsetX+maxX-1, offsetY+maxY-1)
-	if err == nil || err == gocui.ErrUnknownView {
-		if _, err := g.SetCurrentView(w.name); err != nil {
+	if err != nil && err != gocui.ErrUnknownView {
+		return err
+	}
+
+	if err == gocui.ErrUnknownView {
+		err = w.initBindings(g)
+		if err == nil {
 			return err
 		}
+	}
 
-		if _, err := g.SetViewOnTop(w.name); err != nil {
-			return err
-		}
+	if _, err := g.SetCurrentView(w.name); err != nil {
+		return err
+	}
 
-		v.Clear()
-		v.Frame = false
+	if _, err := g.SetViewOnTop(w.name); err != nil {
+		return err
+	}
 
-		worldMaxY := w.offsetY + maxY - 2
-		worldMaxX := w.offsetX + maxX - 2
+	v.Clear()
+	v.Frame = false
 
-		adjustY := worldY - worldMaxY
-		if adjustY < 0 {
-			w.offsetY += adjustY
-		}
+	worldMaxY := w.offsetY + maxY - 2
+	worldMaxX := w.offsetX + maxX - 2
 
-		adjustX := worldX - worldMaxX
-		if adjustX < 0 {
-			w.offsetX += adjustX
-		}
+	adjustY := worldY - worldMaxY
+	if adjustY < 0 {
+		w.offsetY += adjustY
+	}
 
-		ghostMap := make(map[Tile]Tile)
-		selectedMap := make(map[Tile]Tile)
+	adjustX := worldX - worldMaxX
+	if adjustX < 0 {
+		w.offsetX += adjustX
+	}
 
-		ghostHeight := -1
-		ghostWidth := -1
-		var ghost [][]StructureTile
-		mode := DisplayModeGhostValid
+	ghostMap := make(map[Tile]Tile)
+	selectedMap := make(map[Tile]Tile)
 
-		if w.ghost != nil {
-			w.structureWidget.s = w.ghost
-			ghost = w.ghost.Tiles()
+	ghostHeight := -1
+	ghostWidth := -1
+	var ghost [][]StructureTile
+	mode := DisplayModeGhostValid
 
-			ghostHeight = len(ghost)
-			ghostWidth = len(ghost[0])
+	if w.ghost != nil {
+		w.structureWidget.s = w.ghost
+		ghost = w.ghost.Tiles()
 
-			// check overlap
-			for i, tileStructures := range ghost {
-				for j, tileStructure := range tileStructures {
-					if tileStructure == nil {
-						continue
-					}
-					ghostMap[tileStructure] = tileStructure
+		ghostHeight = len(ghost)
+		ghostWidth = len(ghost[0])
 
-					if w.offsetY+i+w.cursorY >= worldY {
-						mode = DisplayModeGhostInvalid
-						break
-					}
-
-					if w.offsetX+j+w.cursorX >= worldX {
-						mode = DisplayModeGhostInvalid
-						break
-					}
-
-					switch w.game.WorldMap[w.offsetY+i+w.cursorY][w.offsetX+j+w.cursorX].(type) {
-					case StructureTile:
-						mode = DisplayModeGhostInvalid
-						break
-					}
+		// check overlap
+		for i, tileStructures := range ghost {
+			for j, tileStructure := range tileStructures {
+				if tileStructure == nil {
+					continue
 				}
-				if mode == DisplayModeGhostInvalid {
+				ghostMap[tileStructure] = tileStructure
+
+				if w.offsetY+i+w.cursorY >= worldY {
+					mode = DisplayModeGhostInvalid
+					break
+				}
+
+				if w.offsetX+j+w.cursorX >= worldX {
+					mode = DisplayModeGhostInvalid
+					break
+				}
+
+				switch w.game.WorldMap[w.offsetY+i+w.cursorY][w.offsetX+j+w.cursorX].(type) {
+				case StructureTile:
+					mode = DisplayModeGhostInvalid
 					break
 				}
 			}
-		} else {
-			switch selectTile := w.game.WorldMap[w.offsetY+w.cursorY][w.offsetX+w.cursorX].(type) {
-			case StructureTile:
-				structure := selectTile.Group()
-				w.structureWidget.s = structure
-
-				for _, tiles := range structure.Tiles() {
-					for _, tile := range tiles {
-						selectedMap[tile] = tile
-					}
-				}
-			default:
-				selectedMap[selectTile] = selectTile
+			if mode == DisplayModeGhostInvalid {
+				break
 			}
 		}
+	} else {
+		switch selectTile := w.game.WorldMap[w.offsetY+w.cursorY][w.offsetX+w.cursorX].(type) {
+		case StructureTile:
+			structure := selectTile.Group()
+			w.structureWidget.s = structure
 
-		for i := w.offsetY; i < worldMaxY; i++ {
-			for j := w.offsetX; j < worldMaxX; j++ {
-				if w.ghost != nil &&
-					w.cursorY+w.offsetY <= i &&
-					i < w.cursorY+w.offsetY+ghostHeight &&
-					w.cursorX+w.offsetX <= j &&
-					j < w.cursorX+w.offsetX+ghostWidth {
+			for _, tiles := range structure.Tiles() {
+				for _, tile := range tiles {
+					selectedMap[tile] = tile
+				}
+			}
+		default:
+			selectedMap[selectTile] = selectTile
+		}
+	}
 
-					fmt.Fprintf(v, "%s", ghost[i-w.cursorY-w.offsetY][j-w.cursorX-w.offsetX].Display(mode))
+	for i := w.offsetY; i < worldMaxY; i++ {
+		for j := w.offsetX; j < worldMaxX; j++ {
+			if w.ghost != nil &&
+				w.cursorY+w.offsetY <= i &&
+				i < w.cursorY+w.offsetY+ghostHeight &&
+				w.cursorX+w.offsetX <= j &&
+				j < w.cursorX+w.offsetX+ghostWidth {
+
+				fmt.Fprintf(v, "%s", ghost[i-w.cursorY-w.offsetY][j-w.cursorX-w.offsetX].Display(mode))
+			} else {
+				if _, ok := selectedMap[w.game.WorldMap[i][j]]; ok {
+					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMapSelected))
 				} else {
-					if _, ok := selectedMap[w.game.WorldMap[i][j]]; ok {
-						fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMapSelected))
-					} else {
-						fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMap))
-					}
+					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMap))
 				}
-
 			}
-			fmt.Fprintln(v, "")
-		}
 
-		if err == gocui.ErrUnknownView {
-			err = w.initBindings(g)
-			if err == nil {
-				return err
-			}
 		}
+		fmt.Fprintln(v, "")
 	}
 
 	return nil
