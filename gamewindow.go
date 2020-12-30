@@ -31,8 +31,8 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 
 	var infoWidget InfoWidget
 	infoWidget.name = "Info"
-	infoWidget.width = 15
-	infoWidget.height = 5
+	infoWidget.width = 20
+	infoWidget.height = 10
 	infoWidget.s = s
 
 	var gameMapWidget GameMapWidget
@@ -102,12 +102,17 @@ type InfoWidget struct {
 	name   string
 	width  int
 	height int
-	s      *state
+
+	game *Game
+	s    *state
 }
 
-// Layout displays the StructureWidget
+// Layout displays the InfoWidget
 func (w *InfoWidget) Layout(g *gocui.Gui) error {
 	maxX, _ := g.Size()
+
+	cursorX, cursorY := w.game.GetCursor()
+	displayY := len(w.game.WorldMap) - cursorY
 
 	v, err := g.SetView(w.name, maxX-w.width, 0, maxX-1, w.height)
 	if err == nil || err == gocui.ErrUnknownView {
@@ -115,38 +120,63 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 			return err
 		}
 
-		v.Title = w.name
+		v.Title = fmt.Sprintf("%s - %d:%d", w.name, cursorX+1, displayY)
 	}
 
 	v.Clear()
 
-	var structureType string
-	switch s := w.s.ghost.(type) {
-	case *Belt:
-		structureType = fmt.Sprintf("B %d,%d,%d:%d,%d,%d", s.inputs[0].x, s.inputs[0].y, s.inputs[0].d, s.outputs[0].x, s.outputs[0].y, s.outputs[0].d)
-	case *Extractor:
-		structureType = fmt.Sprintf("E %d,%d,%d", s.outputs[0].x, s.outputs[0].y, s.outputs[0].d)
-	default:
-		structureType = " - "
-	}
-	fmt.Fprintf(v, "%s\n", structureType)
-
 	if w.s.ghost != nil {
-		product, _ := w.s.ghost.CanRetrieveProduct()
-		var productName string
-		if product == nil {
-			productName = "-"
-		} else {
-			productName = product.name
+		var structureName string
+		switch w.s.ghost.(type) {
+		case *Belt:
+			structureName = "belt"
+		case *Chest:
+			structureName = "chest"
+		case *Extractor:
+			structureName = "extractor"
+		default:
+			structureName = "unknown"
 		}
-		fmt.Fprintf(v, "Prod: %s\n", productName)
+
+		fmt.Fprintf(v, "Placing: %s\n", structureName)
+		fmt.Fprint(v, "q or r - rotate\n")
+		fmt.Fprint(v, "d      - cancel\n")
+		fmt.Fprint(v, "SPACE  - place\n")
+		fmt.Fprint(v, "\narrows - move\n")
+
+		return nil
 	}
+
+	structure, _, _ := w.game.GetStructureAt(cursorY, cursorX)
+	if structure == nil {
+		fmt.Fprint(v, "r - extractor\n")
+		fmt.Fprint(v, "b - belt\n")
+		fmt.Fprint(v, "c - chest\n")
+		fmt.Fprint(v, "\narrows - move\n")
+
+		return nil
+	}
+
+	var structureName string
+	switch structure.(type) {
+	case *Belt:
+		structureName = "belt"
+	case *Chest:
+		structureName = "chest"
+	case *Extractor:
+		structureName = "extractor"
+	default:
+		structureName = "unknown"
+	}
+	fmt.Fprintf(v, "Structure: %s\n", structureName)
+	fmt.Fprint(v, "\narrows - move\n")
 
 	return nil
 }
 
-// SetGame sets the Game associated with the GameMapWidget
+// SetGame sets the Game associated with InfoWidget
 func (w *InfoWidget) SetGame(game *Game) {
+	w.game = game
 }
 
 // GameMapWidget a GameWidget that displays the game map
