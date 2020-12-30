@@ -151,7 +151,6 @@ type GameMapWidget struct {
 	game            *Game
 	structureWidget *StructureWidget
 
-	cursorX, cursorY int
 	offsetX, offsetY int
 	ghost            Structure
 }
@@ -229,6 +228,8 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 	var ghost [][]StructureTile
 	mode := DisplayModeGhostValid
 
+	cursorX, cursorY := w.game.GetCursor()
+
 	if w.ghost != nil {
 		w.structureWidget.s = w.ghost
 		ghost = w.ghost.Tiles()
@@ -236,36 +237,32 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		ghostHeight = len(ghost)
 		ghostWidth = len(ghost[0])
 
-		// check overlap
-		for i, tileStructures := range ghost {
-			for j, tileStructure := range tileStructures {
-				if tileStructure == nil {
-					continue
-				}
-				ghostMap[tileStructure] = tileStructure
+		maxGhostX, maxGhostY := cursorX+ghostWidth, cursorY+ghostHeight
 
-				if w.offsetY+i+w.cursorY >= worldY {
-					mode = DisplayModeGhostInvalid
+		if !w.game.WithinBounds(maxGhostX, maxGhostY) {
+			mode = DisplayModeGhostInvalid
+		} else {
+			// check overlap
+			for i, tileStructures := range ghost {
+				for j, tileStructure := range tileStructures {
+					if tileStructure == nil {
+						continue
+					}
+					ghostMap[tileStructure] = tileStructure
+
+					switch w.game.WorldMap[i+cursorY][j+cursorX].(type) {
+					case StructureTile:
+						mode = DisplayModeGhostInvalid
+						break
+					}
+				}
+				if mode == DisplayModeGhostInvalid {
 					break
 				}
-
-				if w.offsetX+j+w.cursorX >= worldX {
-					mode = DisplayModeGhostInvalid
-					break
-				}
-
-				switch w.game.WorldMap[w.offsetY+i+w.cursorY][w.offsetX+j+w.cursorX].(type) {
-				case StructureTile:
-					mode = DisplayModeGhostInvalid
-					break
-				}
-			}
-			if mode == DisplayModeGhostInvalid {
-				break
 			}
 		}
 	} else {
-		switch selectTile := w.game.WorldMap[w.offsetY+w.cursorY][w.offsetX+w.cursorX].(type) {
+		switch selectTile := w.game.WorldMap[cursorY][cursorX].(type) {
 		case StructureTile:
 			structure := selectTile.Group()
 			w.structureWidget.s = structure
@@ -283,12 +280,12 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 	for i := w.offsetY; i < worldMaxY; i++ {
 		for j := w.offsetX; j < worldMaxX; j++ {
 			if w.ghost != nil &&
-				w.cursorY+w.offsetY <= i &&
-				i < w.cursorY+w.offsetY+ghostHeight &&
-				w.cursorX+w.offsetX <= j &&
-				j < w.cursorX+w.offsetX+ghostWidth {
+				cursorY <= i &&
+				i < cursorY+ghostHeight &&
+				cursorX <= j &&
+				j < cursorX+ghostWidth {
 
-				fmt.Fprintf(v, "%s", ghost[i-w.cursorY-w.offsetY][j-w.cursorX-w.offsetX].Display(mode))
+				fmt.Fprintf(v, "%s", ghost[i-cursorY][j-cursorX].Display(mode))
 			} else {
 				if _, ok := selectedMap[w.game.WorldMap[i][j]]; ok {
 					fmt.Fprintf(v, "%s", w.game.WorldMap[i][j].Display(DisplayModeMapSelected))
@@ -359,7 +356,8 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		func(g *gocui.Gui, v *gocui.View) error {
 			if w.ghost != nil {
 				copy := w.ghost.CopyStructure()
-				w.game.PlaceBuilding(w.offsetY+w.cursorY, w.offsetX+w.cursorX, copy)
+				x, y := w.game.GetCursor()
+				w.game.PlaceBuilding(y, x, copy)
 			}
 			return nil
 		}); err != nil {
@@ -371,50 +369,30 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 
 func (w *GameMapWidget) move(dx, dy int) func(g *gocui.Gui, v *gocui.View) error {
 	return func(g *gocui.Gui, v *gocui.View) error {
-		cx, cy := w.cursorX, w.cursorY
+		cx, cy := w.game.GetCursor()
+		cx += dx
+		cy += dy
+
+		if !w.game.WithinBounds(cx, cy) {
+			// do nothing if would be moved outside of bounds
+			return nil
+		}
+
 		maxX, maxY := v.Size()
-
-		worldY := len(w.game.WorldMap)
-		worldX := len(w.game.WorldMap[0])
-
-		newCX := cx + dx
-		if newCX < 0 {
-			if newCX+w.offsetX >= 0 {
-				w.offsetX = newCX + w.offsetX
-				newCX = 0
-			} else {
-				w.offsetX = 0
-				newCX = 0
-			}
-		} else if newCX >= maxX {
-			if newCX+w.offsetX < worldX {
-				w.offsetX = w.offsetX + newCX - maxX + 1
-			} else {
-				w.offsetX = worldX - maxX
-			}
-			newCX = maxX - 1
+		if cx < w.offsetX {
+			w.offsetX = cx
+		} else if cx >= w.offsetX+maxX {
+			w.offsetX = cx - maxX + 1
 		}
 
-		newCY := cy + dy
-		if newCY < 0 {
-			if newCY+w.offsetY >= 0 {
-				w.offsetY = newCY + w.offsetY
-				newCY = 0
-			} else {
-				w.offsetY = 0
-				newCY = 0
-			}
-		} else if newCY >= maxY {
-			if newCY+w.offsetY < worldY {
-				w.offsetY = w.offsetY + newCY - maxY + 1
-			} else {
-				w.offsetY = worldY - maxY
-			}
-			newCY = maxY - 1
+		if cy < w.offsetY {
+			w.offsetY = cy
+		} else if cy >= w.offsetY+maxY {
+			w.offsetY = cy - maxY + 1
 		}
 
-		w.cursorX = newCX
-		w.cursorY = newCY
+		w.game.MoveCursor(dx, dy)
+
 		return nil
 	}
 }

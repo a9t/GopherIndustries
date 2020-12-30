@@ -13,15 +13,43 @@ type position struct {
 type Game struct {
 	WorldMap [][]Tile
 	roots    map[Structure]position
+	cursor   position
+}
+
+// WithinBounds indicates if the position is within the map limits
+func (g *Game) WithinBounds(x, y int) bool {
+	if y < 0 || y >= len(g.WorldMap) {
+		return false
+	}
+
+	if x < 0 || x >= len(g.WorldMap[0]) {
+		return false
+	}
+
+	return true
+}
+
+// GetCursor returns the cursor position in the game world
+func (g *Game) GetCursor() (int, int) {
+	return g.cursor.x, g.cursor.y
+}
+
+// MoveCursor updates the cursor position with the specified offset
+func (g *Game) MoveCursor(offsetX, offsetY int) bool {
+	x := g.cursor.x + offsetX
+	y := g.cursor.y + offsetY
+
+	if !g.WithinBounds(x, y) {
+		return false
+	}
+
+	g.cursor.x, g.cursor.y = x, y
+	return true
 }
 
 // GetStructureAt returns the Structure that covers the location and its top right corner
 func (g *Game) GetStructureAt(y, x int) (Structure, int, int) {
-	if y < 0 || y >= len(g.WorldMap) {
-		return nil, -1, -1
-	}
-
-	if x < 0 || x >= len(g.WorldMap[0]) {
+	if !g.WithinBounds(x, y) {
 		return nil, -1, -1
 	}
 
@@ -47,7 +75,6 @@ func (g *Game) Tick() {
 	inProgress := make(map[Structure]position)
 	for s, p := range g.roots {
 		inProgress[s] = p
-
 	}
 
 	for len(inProgress) != 0 {
