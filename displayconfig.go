@@ -39,10 +39,10 @@ func newDisplayConfigManager() *DisplayConfigManager {
 	}
 
 	unicodeSymbolConfig := new(SymbolConfig)
-	unicodeSymbolConfig.Name = "unicode"
+	unicodeSymbolConfig.Name = "FreeMono"
 	unicodeSymbolConfig.Types = map[string]string{
 		"resource":     " \u2591\u2592\u2593",
-		"belt":         "\u257D\u2519\u2515\u257E\u2516\u250E\u257F\u250D\u2511\u257C\u2512\u251A",
+		"belt":         "\u2193\u21B2\u21B3\u2190\u2196\u2199\u2191\u21B1\u21B0\u2192\u2198\u2197",
 		"fillerCorner": "\u259B\u259C\u259F\u2599",
 		"fillerMid":    "\u2580\u2590\u2584\u258C",
 		"fillerCenter": "\u2588",
