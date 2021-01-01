@@ -46,7 +46,7 @@ type ProductFactory struct {
 
 // GetProduct returns the Product identified by the product id
 func (pf *ProductFactory) GetProduct(id int) *Product {
-	return pf.products[0]
+	return pf.products[id]
 }
 
 func newProductFactory() *ProductFactory {
@@ -64,7 +64,7 @@ func newProductFactory() *ProductFactory {
 	pf.products[ProductProcessedGear] = &Product{"gear", 'g', nil}
 
 	pf.products[ProductStructureExtractor] = &Product{"extractor", 'e', NewExtractor()}
-	pf.products[ProductStructureChest] = &Product{"extractor", 'S', NewChest()}
+	pf.products[ProductStructureChest] = &Product{"chest", 'S', NewChest()}
 	pf.products[ProductStructureBelt] = &Product{"belt", 'b', NewChest()}
 
 	return pf

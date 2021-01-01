@@ -6,7 +6,16 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+const (
+	stateNavigate int = iota
+	stateStructureSelect
+	stateStructureGhost
+	stateMoveFromInventory
+	stateMoveFromStructure
+)
+
 type state struct {
+	state int
 	ghost Structure
 }
 
@@ -42,8 +51,16 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	gameMapWidget.reservedX = infoWidget.width
 	gameMapWidget.s = s
 
+	structureSelectorWidget := newStructureSelectorWidget()
+	structureSelectorWidget.name = "Structure"
+	structureSelectorWidget.width = 20
+	structureSelectorWidget.height = 5
+	structureSelectorWidget.offsetY = infoWidget.height + 1
+	structureSelectorWidget.s = s
+
 	w.widgets = append(w.widgets, &gameMapWidget)
 	w.widgets = append(w.widgets, &infoWidget)
+	w.widgets = append(w.widgets, structureSelectorWidget)
 
 	return &w
 }
@@ -242,8 +259,10 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 		}
 	}
 
-	if _, err := g.SetCurrentView(w.name); err != nil {
-		return err
+	if w.s.state == stateNavigate || w.s.state == stateStructureGhost {
+		if _, err := g.SetCurrentView(w.name); err != nil {
+			return err
+		}
 	}
 
 	if _, err := g.SetViewOnTop(w.name); err != nil {
@@ -362,24 +381,24 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		w.move(1, 0)); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'b', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewBelt(); return nil }); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding(w.name, 'r', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewExtractor(); return nil }); err != nil {
-		return err
-	}
-	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = NewChest(); return nil }); err != nil {
+	if err := g.SetKeybinding(w.name, 'a', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.state == stateNavigate {
+				w.s.state = stateStructureSelect
+			}
+
+			return nil
+		}); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.s.ghost != nil {
-				w.s.ghost = nil
+			if w.s.state != stateStructureGhost {
 				return nil
 			}
+
+			w.s.ghost = nil
+			w.s.state = stateNavigate
 
 			x, y := w.game.GetCursor()
 			w.game.RemoveStructure(y, x)
@@ -390,6 +409,10 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 'e', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.state != stateStructureGhost {
+				return nil
+			}
+
 			if w.s.ghost != nil {
 				w.s.ghost.RotateRight()
 			}
@@ -399,6 +422,10 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.state != stateStructureGhost {
+				return nil
+			}
+
 			if w.s.ghost != nil {
 				w.s.ghost.RotateLeft()
 			}
@@ -446,6 +473,121 @@ func (w *GameMapWidget) move(dx, dy int) func(g *gocui.Gui, v *gocui.View) error
 		}
 
 		w.game.MoveCursor(dx, dy)
+
+		return nil
+	}
+}
+
+// StructureSelectorWidget a GameWidget that displays available Structures to build
+type StructureSelectorWidget struct {
+	name    string
+	offsetY int
+	width   int
+	height  int
+
+	game *Game
+	s    *state
+
+	position int
+	products []*Product
+}
+
+func newStructureSelectorWidget() *StructureSelectorWidget {
+	w := new(StructureSelectorWidget)
+	w.products = make([]*Product, 3)
+	w.products[0] = GlobalProductFactory.GetProduct(ProductStructureBelt)
+	w.products[1] = GlobalProductFactory.GetProduct(ProductStructureChest)
+	w.products[2] = GlobalProductFactory.GetProduct(ProductStructureExtractor)
+
+	return w
+}
+
+// SetGame sets the Game associated with StructureSelectorWidget
+func (w *StructureSelectorWidget) SetGame(game *Game) {
+	w.game = game
+}
+
+// Layout displays the StructureSelectorWidget
+func (w *StructureSelectorWidget) Layout(g *gocui.Gui) error {
+	if w.s.state != stateStructureSelect {
+		return nil
+	}
+
+	maxX, _ := g.Size()
+
+	v, err := g.SetView(w.name, maxX-w.width, w.offsetY, maxX-1, w.offsetY+w.height)
+	if err != nil && err != gocui.ErrUnknownView {
+		return err
+	}
+
+	if err == gocui.ErrUnknownView {
+		err = w.initBindings(g)
+		if err == nil {
+			return err
+		}
+	}
+
+	if _, err := g.SetViewOnTop(w.name); err != nil {
+		return err
+	}
+
+	if _, err := g.SetCurrentView(w.name); err != nil {
+		return err
+	}
+
+	v.Title = "Structures"
+
+	v.Clear()
+
+	for i, product := range w.products {
+		var prefix string
+		if i == w.position {
+			prefix = ">"
+		} else {
+			prefix = " "
+		}
+
+		fmt.Fprintf(v, "%s %s\n", prefix, product.name)
+	}
+
+	return nil
+}
+
+func (w *StructureSelectorWidget) initBindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
+		w.move(1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
+		w.move(-1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			w.s.ghost = w.products[w.position].structure.CopyStructure()
+			w.s.state = stateStructureGhost
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			w.s.ghost = nil
+			w.s.state = stateNavigate
+
+			return nil
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *StructureSelectorWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
+	return func(g *gocui.Gui, v *gocui.View) error {
+		w.position += d + len(w.products)
+		w.position %= len(w.products)
 
 		return nil
 	}
