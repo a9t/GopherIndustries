@@ -673,7 +673,10 @@ func (t *RawResource) Display(mode DisplayMode) string {
 
 	var symbol rune
 	var width int
-	repeat := t.amount
+	repeat := 0
+	if t.amount > 0 {
+		repeat = t.amount/100 + 1
+	}
 
 	for i, w := 0, 0; i < len(symbols); i += w {
 		symbol, width = utf8.DecodeRuneInString(symbols[i:])

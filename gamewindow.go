@@ -142,17 +142,26 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		fmt.Fprint(v, "q or r - rotate\n")
 		fmt.Fprint(v, "d      - cancel\n")
 		fmt.Fprint(v, "SPACE  - place\n")
-		fmt.Fprint(v, "\narrows - move\n")
+		fmt.Fprint(v, "\n↑←↓→ - move\n")
 
 		return nil
 	}
 
 	structure, _, _ := w.game.GetStructureAt(cursorY, cursorX)
 	if structure == nil {
+		switch r := w.game.WorldMap[cursorY][cursorX].(type) {
+		case *RawResource:
+			if r.amount > 0 {
+				fmt.Fprintf(v, "Resource %d\n\n", r.amount)
+			} else {
+				fmt.Fprint(v, "Empty tile\n\n")
+			}
+		}
+
 		fmt.Fprint(v, "r - extractor\n")
 		fmt.Fprint(v, "b - belt\n")
 		fmt.Fprint(v, "c - chest\n")
-		fmt.Fprint(v, "\narrows - move\n")
+		fmt.Fprint(v, "\n↑←↓→ - move\n")
 
 		return nil
 	}
@@ -169,7 +178,7 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		structureName = "unknown"
 	}
 	fmt.Fprintf(v, "Structure: %s\n", structureName)
-	fmt.Fprint(v, "\narrows - move\n")
+	fmt.Fprint(v, "\n↑←↓→ - move\n")
 
 	return nil
 }
@@ -366,7 +375,17 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error { w.s.ghost = nil; return nil }); err != nil {
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.ghost != nil {
+				w.s.ghost = nil
+				return nil
+			}
+
+			x, y := w.game.GetCursor()
+			w.game.RemoveStructure(y, x)
+			return nil
+
+		}); err != nil {
 		return err
 	}
 	if err := g.SetKeybinding(w.name, 'e', gocui.ModNone,
@@ -392,7 +411,7 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 			if w.s.ghost != nil {
 				copy := w.s.ghost.CopyStructure()
 				x, y := w.game.GetCursor()
-				w.game.PlaceBuilding(y, x, copy)
+				w.game.PlaceStructure(y, x, copy)
 			}
 			return nil
 		}); err != nil {

@@ -173,8 +173,40 @@ func (g *Game) GetNeighbour(y int, x int, d Direction, in bool) (Structure, int,
 	return nil, -1, -1
 }
 
-// PlaceBuilding puts a Building at the specified location on the map
-func (g *Game) PlaceBuilding(y, x int, s Structure) bool {
+// RemoveStructure remove the structure at the specified position from the map
+func (g *Game) RemoveStructure(y, x int) Structure {
+	s, y, x := g.GetStructureAt(y, x)
+	if s == nil {
+		return nil
+	}
+
+	for _, input := range s.Inputs() {
+		tx := input.x + x
+		ty := input.y + y
+
+		neighbour, nx, ny := g.GetNeighbour(ty, tx, input.d, true)
+		if neighbour == nil {
+			continue
+		}
+
+		pos := position{x: nx, y: ny}
+		g.roots[neighbour] = pos
+	}
+
+	structureTiles := s.Tiles()
+	for xx, tiles := range structureTiles {
+		for yy, tile := range tiles {
+			g.WorldMap[y+yy][x+xx] = tile.UnderlyingResource()
+		}
+	}
+
+	delete(g.roots, s)
+
+	return s
+}
+
+// PlaceStructure puts a Building at the specified location on the map
+func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 	tilesMatrix := s.Tiles()
 
 	if y < 0 || y+len(tilesMatrix) >= len(g.WorldMap) {
@@ -253,11 +285,11 @@ func GenerateGame(height int, width int) *Game {
 			case r < 0.8:
 				worldMap[i][j] = &RawResource{0, -1}
 			case r < 0.9:
-				worldMap[i][j] = &RawResource{1, 0}
+				worldMap[i][j] = &RawResource{rand.Int() % 100, 0}
 			case r < 0.98:
-				worldMap[i][j] = &RawResource{2, 0}
+				worldMap[i][j] = &RawResource{100 + rand.Int()%100, 0}
 			default:
-				worldMap[i][j] = &RawResource{3, 0}
+				worldMap[i][j] = &RawResource{200 + rand.Int()%100, 0}
 			}
 		}
 	}
