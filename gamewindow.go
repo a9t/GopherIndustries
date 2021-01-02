@@ -393,12 +393,15 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.s.state != stateStructureGhost {
+			if w.s.state == stateStructureGhost {
+				w.s.ghost = nil
+				w.s.state = stateNavigate
 				return nil
 			}
 
-			w.s.ghost = nil
-			w.s.state = stateNavigate
+			if w.s.state != stateNavigate {
+				return nil
+			}
 
 			x, y := w.game.GetCursor()
 			w.game.RemoveStructure(y, x)

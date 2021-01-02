@@ -65,7 +65,7 @@ func newProductFactory() *ProductFactory {
 
 	pf.products[ProductStructureExtractor] = &Product{"extractor", 'e', NewExtractor()}
 	pf.products[ProductStructureChest] = &Product{"chest", 'S', NewChest()}
-	pf.products[ProductStructureBelt] = &Product{"belt", 'b', NewChest()}
+	pf.products[ProductStructureBelt] = &Product{"belt", 'b', NewBelt()}
 
 	return pf
 }
