@@ -34,6 +34,7 @@ func (s *Storage) Add(p *Product, c int) int {
 		s.objects[p] = previousCount + toAdd
 	}
 
+	s.crtStorage += toAdd
 	return toAdd
 }
 

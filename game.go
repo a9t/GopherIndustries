@@ -11,10 +11,10 @@ type position struct {
 
 // Game implementation
 type Game struct {
-	WorldMap [][]Tile
-	roots    map[Structure]position
-	cursor   position
-	invetory *Storage
+	WorldMap  [][]Tile
+	roots     map[Structure]position
+	cursor    position
+	inventory *Storage
 }
 
 // WithinBounds indicates if the position is within the map limits
@@ -298,7 +298,15 @@ func GenerateGame(height int, width int) *Game {
 	g := new(Game)
 	g.WorldMap = worldMap
 	g.roots = make(map[Structure]position)
-	g.invetory = NewStorage(100)
+
+	g.inventory = NewStorage(100)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureBelt), 50)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureChest), 2)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureExtractor), 4)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedCopperWire), 1)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedGear), 1)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedPlate), 1)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductResourceStone), 1)
 
 	return g
 }

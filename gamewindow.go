@@ -58,9 +58,17 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	structureSelectorWidget.offsetY = infoWidget.height + 1
 	structureSelectorWidget.s = s
 
+	inventoryWidget := newInventoryWidget()
+	inventoryWidget.name = "Structure"
+	inventoryWidget.width = 20
+	inventoryWidget.height = 6
+	inventoryWidget.offsetY = infoWidget.height + 1
+	inventoryWidget.s = s
+
 	w.widgets = append(w.widgets, &gameMapWidget)
 	w.widgets = append(w.widgets, &infoWidget)
 	w.widgets = append(w.widgets, structureSelectorWidget)
+	w.widgets = append(w.widgets, inventoryWidget)
 
 	return &w
 }
@@ -391,6 +399,16 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.state == stateNavigate {
+				w.s.state = stateMoveFromInventory
+			}
+
+			return nil
+		}); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			if w.s.state == stateStructureGhost {
@@ -591,6 +609,142 @@ func (w *StructureSelectorWidget) move(d int) func(g *gocui.Gui, v *gocui.View) 
 	return func(g *gocui.Gui, v *gocui.View) error {
 		w.position += d + len(w.products)
 		w.position %= len(w.products)
+
+		return nil
+	}
+}
+
+// InventoryWidget a GameWidget that displays the full player inventory for transfer purposes
+type InventoryWidget struct {
+	name    string
+	offsetY int
+	width   int
+	height  int
+
+	game *Game
+	s    *state
+
+	position int
+}
+
+func newInventoryWidget() *InventoryWidget {
+	w := new(InventoryWidget)
+
+	return w
+}
+
+// SetGame sets the Game associated with InventoryWidget
+func (w *InventoryWidget) SetGame(game *Game) {
+	w.game = game
+}
+
+// Layout displays the InventoryWidget
+func (w *InventoryWidget) Layout(g *gocui.Gui) error {
+	if w.s.state != stateMoveFromInventory {
+		return nil
+	}
+
+	maxX, _ := g.Size()
+
+	v, err := g.SetView(w.name, maxX-w.width, w.offsetY, maxX-1, w.offsetY+w.height)
+	if err != nil && err != gocui.ErrUnknownView {
+		return err
+	}
+
+	if err == gocui.ErrUnknownView {
+		err = w.initBindings(g)
+		if err == nil {
+			return err
+		}
+	}
+
+	if _, err := g.SetViewOnTop(w.name); err != nil {
+		return err
+	}
+
+	if _, err := g.SetCurrentView(w.name); err != nil {
+		return err
+	}
+
+	v.Title = "Invetory"
+
+	v.Clear()
+
+	if w.game.inventory.Size() == 0 {
+		fmt.Fprint(v, "Empty inventory\n")
+		return nil
+	}
+
+	if w.position >= w.game.inventory.Size() {
+		w.position = w.game.inventory.Size() - 1
+	}
+
+	var start int
+	uniqueCount := w.game.inventory.UniqueObjects()
+	if uniqueCount-5 > w.position {
+		start = w.position
+	} else {
+		start = uniqueCount - 5
+	}
+
+	index := -1
+	for _, product := range GlobalProductFactory.cannonicalOrder {
+		count, present := w.game.inventory.objects[product]
+		if !present {
+			continue
+		}
+
+		index++
+		if index < start {
+			continue
+		}
+
+		var prefix string
+		if index == w.position {
+			prefix = ">"
+		} else {
+			prefix = " "
+		}
+
+		fmt.Fprintf(v, "%s %3d x %s\n", prefix, count, product.name)
+	}
+
+	return nil
+}
+
+func (w *InventoryWidget) initBindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
+		w.move(1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
+		w.move(-1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			w.position = 0
+			w.s.state = stateNavigate
+
+			return nil
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *InventoryWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
+	return func(g *gocui.Gui, v *gocui.View) error {
+		size := w.game.inventory.UniqueObjects()
+		if size == 0 {
+			return nil
+		}
+
+		newPosition := w.position + d
+		if newPosition >= 0 && newPosition < size {
+			w.position = newPosition
+		}
 
 		return nil
 	}

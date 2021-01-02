@@ -41,7 +41,8 @@ type Product struct {
 
 // ProductFactory factory for generating all the possible Products
 type ProductFactory struct {
-	products map[int]*Product
+	products        map[int]*Product
+	cannonicalOrder []*Product
 }
 
 // GetProduct returns the Product identified by the product id
@@ -49,23 +50,29 @@ func (pf *ProductFactory) GetProduct(id int) *Product {
 	return pf.products[id]
 }
 
+func (pf *ProductFactory) addProduct(id int, p *Product) {
+	pf.products[id] = p
+	pf.cannonicalOrder = append(pf.cannonicalOrder, p)
+}
+
 func newProductFactory() *ProductFactory {
 	pf := new(ProductFactory)
 	pf.products = make(map[int]*Product)
+	pf.cannonicalOrder = make([]*Product, 0)
 
-	pf.products[ProductResourceCopper] = &Product{"copper", 'c', nil}
-	pf.products[ProductResourceIron] = &Product{"iron", 'i', nil}
-	pf.products[ProductResourceStone] = &Product{"stone", 's', nil}
+	pf.addProduct(ProductResourceCopper, &Product{"copper", 'c', nil})
+	pf.addProduct(ProductResourceIron, &Product{"iron", 'i', nil})
+	pf.addProduct(ProductResourceStone, &Product{"stone", 's', nil})
 
-	pf.products[ProductProcessedCopperWire] = &Product{"wire", 'w', nil}
-	pf.products[ProductProcessedCircuitBoard] = &Product{"circuit", 'C', nil}
+	pf.addProduct(ProductProcessedCopperWire, &Product{"wire", 'w', nil})
+	pf.addProduct(ProductProcessedCircuitBoard, &Product{"circuit", 'C', nil})
 
-	pf.products[ProductProcessedPlate] = &Product{"plate", 'p', nil}
-	pf.products[ProductProcessedGear] = &Product{"gear", 'g', nil}
+	pf.addProduct(ProductProcessedPlate, &Product{"plate", 'p', nil})
+	pf.addProduct(ProductProcessedGear, &Product{"gear", 'g', nil})
 
-	pf.products[ProductStructureExtractor] = &Product{"extractor", 'e', NewExtractor()}
-	pf.products[ProductStructureChest] = &Product{"chest", 'S', NewChest()}
-	pf.products[ProductStructureBelt] = &Product{"belt", 'b', NewBelt()}
+	pf.addProduct(ProductStructureExtractor, &Product{"extractor", 'e', NewExtractor()})
+	pf.addProduct(ProductStructureChest, &Product{"chest", 'S', NewChest()})
+	pf.addProduct(ProductStructureBelt, &Product{"belt", 'b', NewBelt()})
 
 	return pf
 }
