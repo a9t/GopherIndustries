@@ -11,7 +11,7 @@ const (
 	// CycleSizeBelt the cycle size for the belt
 	CycleSizeBelt int = 20
 	// ChestMaxStorage the maximum number of products stored in a chest
-	ChestMaxStorage int = 100
+	ChestMaxStorage int = 1000
 )
 
 // Direction indicates the movement direction
@@ -440,8 +440,7 @@ func NewChestTile() *ChestTile {
 // Chest is the structure representation of a storage chest
 type Chest struct {
 	BaseStructure
-	Products map[*Product]int
-	Total    int
+	s *Storage
 }
 
 // NewChest creates a new *Chest
@@ -450,7 +449,7 @@ func NewChest() *Chest {
 	chest.tiles = [][]StructureTile{
 		{NewChestTile()},
 	}
-	chest.Products = make(map[*Product]int)
+	chest.s = NewStorage(ChestMaxStorage)
 
 	chest.inputs = make([]Transfer, 4)
 	chest.outputs = make([]Transfer, 0)
@@ -479,31 +478,24 @@ func (c *Chest) RetrieveProduct() (*Product, bool) {
 
 // CanAcceptProduct indicates if the Chest has space for another Product
 func (c *Chest) CanAcceptProduct(*Product) bool {
-	return c.Total < ChestMaxStorage
+	return c.s.Size() < c.s.Capacity()
 }
 
 // AcceptProduct passes the Product to the Chest
 func (c *Chest) AcceptProduct(p *Product) bool {
-	if c.Total >= ChestMaxStorage {
+	if c.s.Size() >= c.s.Capacity() {
 		return false
 	}
 
-	val, present := c.Products[p]
-	if present {
-		c.Products[p] = val + 1
-	} else {
-		c.Products[p] = 1
-	}
+	added := c.s.Add(p, 1)
 
-	c.Total++
-
-	return true
+	return added == 1
 }
 
 // CopyStructure creates a copy of the Chest
 func (c *Chest) CopyStructure() Structure {
 	chest := new(Chest)
-	chest.Products = make(map[*Product]int)
+	chest.s = NewStorage(ChestMaxStorage)
 
 	baseStructure := c.BaseStructure.copyStructure(chest)
 	chest.BaseStructure = *baseStructure

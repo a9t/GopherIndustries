@@ -14,6 +14,7 @@ type Game struct {
 	WorldMap [][]Tile
 	roots    map[Structure]position
 	cursor   position
+	invetory *Storage
 }
 
 // WithinBounds indicates if the position is within the map limits
@@ -297,6 +298,7 @@ func GenerateGame(height int, width int) *Game {
 	g := new(Game)
 	g.WorldMap = worldMap
 	g.roots = make(map[Structure]position)
+	g.invetory = NewStorage(100)
 
 	return g
 }
