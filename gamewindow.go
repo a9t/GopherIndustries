@@ -17,6 +17,7 @@ const (
 type state struct {
 	state int
 	ghost Structure
+	st    []*Storage
 }
 
 // GameWindow a Window that manages all the GameWidget-s
@@ -34,6 +35,7 @@ type GameWindow struct {
 // NewGameWindow creates a new GameWindow
 func NewGameWindow(manager WindowManager) *GameWindow {
 	s := new(state)
+	s.st = make([]*Storage, 2)
 
 	var w GameWindow
 	w.manager = manager
@@ -59,16 +61,27 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	structureSelectorWidget.s = s
 
 	inventoryWidget := newInventoryWidget()
-	inventoryWidget.name = "Structure"
+	inventoryWidget.name = "Inventory"
 	inventoryWidget.width = 20
 	inventoryWidget.height = 6
 	inventoryWidget.offsetY = infoWidget.height + 1
+	inventoryWidget.activeState = stateMoveFromInventory
 	inventoryWidget.s = s
+
+	chestInventoryWidget := newInventoryWidget()
+	chestInventoryWidget.name = "Chest"
+	chestInventoryWidget.width = 20
+	chestInventoryWidget.height = 6
+	chestInventoryWidget.offsetY = infoWidget.height + 1 + inventoryWidget.height + 1
+	chestInventoryWidget.activeState = stateMoveFromStructure
+	chestInventoryWidget.storageIndex = 1
+	chestInventoryWidget.s = s
 
 	w.widgets = append(w.widgets, &gameMapWidget)
 	w.widgets = append(w.widgets, &infoWidget)
 	w.widgets = append(w.widgets, structureSelectorWidget)
 	w.widgets = append(w.widgets, inventoryWidget)
+	w.widgets = append(w.widgets, chestInventoryWidget)
 
 	return &w
 }
@@ -401,7 +414,16 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.s.state == stateNavigate {
+			if w.s.state != stateNavigate {
+				return nil
+			}
+
+			x, y := w.game.GetCursor()
+			structure, _, _ := w.game.GetStructureAt(y, x)
+			switch c := structure.(type) {
+			case *Chest:
+				w.s.st[0] = w.game.inventory
+				w.s.st[1] = c.s
 				w.s.state = stateMoveFromInventory
 			}
 
@@ -409,7 +431,7 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			if w.s.state == stateStructureGhost {
 				w.s.ghost = nil
@@ -592,7 +614,7 @@ func (w *StructureSelectorWidget) initBindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			w.s.ghost = nil
 			w.s.state = stateNavigate
@@ -624,6 +646,9 @@ type InventoryWidget struct {
 	game *Game
 	s    *state
 
+	storageIndex int
+	activeState  int
+
 	position int
 }
 
@@ -640,7 +665,7 @@ func (w *InventoryWidget) SetGame(game *Game) {
 
 // Layout displays the InventoryWidget
 func (w *InventoryWidget) Layout(g *gocui.Gui) error {
-	if w.s.state != stateMoveFromInventory {
+	if w.s.state != stateMoveFromInventory && w.s.state != stateMoveFromStructure {
 		return nil
 	}
 
@@ -662,25 +687,29 @@ func (w *InventoryWidget) Layout(g *gocui.Gui) error {
 		return err
 	}
 
-	if _, err := g.SetCurrentView(w.name); err != nil {
-		return err
+	if w.activeState == w.s.state {
+		if _, err := g.SetCurrentView(w.name); err != nil {
+			return err
+		}
 	}
 
-	v.Title = "Invetory"
+	v.Title = w.name
 
 	v.Clear()
 
-	if w.game.inventory.Size() == 0 {
+	storage := w.s.st[w.storageIndex]
+
+	if storage.Size() == 0 {
 		fmt.Fprint(v, "Empty inventory\n")
 		return nil
 	}
 
-	if w.position >= w.game.inventory.Size() {
-		w.position = w.game.inventory.Size() - 1
+	if w.position >= storage.Size() {
+		w.position = storage.Size() - 1
 	}
 
 	var start int
-	uniqueCount := w.game.inventory.UniqueObjects()
+	uniqueCount := storage.UniqueObjects()
 	if uniqueCount-5 > w.position {
 		start = w.position
 	} else {
@@ -689,7 +718,7 @@ func (w *InventoryWidget) Layout(g *gocui.Gui) error {
 
 	index := -1
 	for _, product := range GlobalProductFactory.cannonicalOrder {
-		count, present := w.game.inventory.objects[product]
+		count, present := storage.objects[product]
 		if !present {
 			continue
 		}
@@ -701,7 +730,11 @@ func (w *InventoryWidget) Layout(g *gocui.Gui) error {
 
 		var prefix string
 		if index == w.position {
-			prefix = ">"
+			if w.activeState == w.s.state {
+				prefix = ">"
+			} else {
+				prefix = " "
+			}
 		} else {
 			prefix = " "
 		}
@@ -721,10 +754,52 @@ func (w *InventoryWidget) initBindings(g *gocui.Gui) error {
 		w.move(-1)); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			w.position = 0
 			w.s.state = stateNavigate
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 't', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			if w.s.state == stateMoveFromInventory {
+				w.s.state = stateMoveFromStructure
+			} else {
+				w.s.state = stateMoveFromInventory
+			}
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			product := w.getProduct()
+			w.s.st[w.storageIndex].Remove(product, 1)
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			product := w.getProduct()
+
+			storage := w.s.st[w.storageIndex]
+			otherStorage := w.s.st[(w.storageIndex+1)%2]
+
+			added := otherStorage.Add(product, 1)
+			if added == 1 {
+				removed := storage.Remove(product, 1)
+				if removed == 1 {
+					return nil
+				}
+
+				otherStorage.Remove(product, 1)
+			}
 
 			return nil
 		}); err != nil {
@@ -734,9 +809,38 @@ func (w *InventoryWidget) initBindings(g *gocui.Gui) error {
 	return nil
 }
 
+func (w *InventoryWidget) getProduct() *Product {
+	storage := w.s.st[w.storageIndex]
+
+	index := -1
+	for _, product := range GlobalProductFactory.cannonicalOrder {
+		_, present := storage.objects[product]
+		if !present {
+			continue
+		}
+
+		index++
+		if index < w.position {
+			continue
+		}
+
+		if index > w.position {
+			break
+		}
+
+		return product
+	}
+
+	return nil
+}
+
 func (w *InventoryWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
 	return func(g *gocui.Gui, v *gocui.View) error {
-		size := w.game.inventory.UniqueObjects()
+		if w.activeState != w.s.state {
+			return nil
+		}
+
+		size := w.s.st[w.storageIndex].UniqueObjects()
 		if size == 0 {
 			return nil
 		}
