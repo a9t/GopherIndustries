@@ -163,7 +163,16 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 
 	v.Clear()
 
-	if w.s.ghost != nil {
+	if w.s.state == stateStructureSelect {
+		fmt.Fprintf(v, "Choose structure\n")
+		fmt.Fprint(v, "navigate: ↑↓\n")
+		fmt.Fprint(v, "cancel  : c\n")
+		fmt.Fprint(v, "select  : ˽")
+
+		return nil
+	}
+
+	if w.s.state == stateStructureGhost {
 		var structureName string
 		switch w.s.ghost.(type) {
 		case *Belt:
@@ -177,10 +186,26 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		}
 
 		fmt.Fprintf(v, "Placing: %s\n", structureName)
-		fmt.Fprint(v, "q or r - rotate\n")
-		fmt.Fprint(v, "d      - cancel\n")
-		fmt.Fprint(v, "SPACE  - place\n")
-		fmt.Fprint(v, "\n↑←↓→ - move\n")
+		fmt.Fprint(v, "rotate: qr\n")
+		fmt.Fprint(v, "cancel: c\n")
+		fmt.Fprint(v, "place : ˽\n")
+		fmt.Fprint(v, "move  : ↑←↓→\n")
+
+		return nil
+	}
+
+	if w.s.state == stateMoveFromInventory || w.s.state == stateMoveFromStructure {
+		if w.s.state == stateMoveFromInventory {
+			fmt.Fprintf(v, "Inventory → chest\n")
+		} else {
+			fmt.Fprintf(v, "Chest → inventory\n")
+		}
+
+		fmt.Fprint(v, "navigate: ↑↓\n")
+		fmt.Fprint(v, "cancel  : c\n")
+		fmt.Fprint(v, "switch  : t\n")
+		fmt.Fprint(v, "delete  : d\n")
+		fmt.Fprint(v, "transfer: ˽\n")
 
 		return nil
 	}
@@ -190,16 +215,14 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		switch r := w.game.WorldMap[cursorY][cursorX].(type) {
 		case *RawResource:
 			if r.amount > 0 {
-				fmt.Fprintf(v, "Resource %d\n\n", r.amount)
+				fmt.Fprintf(v, "Resource %d\n", r.amount)
 			} else {
-				fmt.Fprint(v, "Empty tile\n\n")
+				fmt.Fprint(v, "Empty tile\n")
 			}
 		}
 
-		fmt.Fprint(v, "r - extractor\n")
-		fmt.Fprint(v, "b - belt\n")
-		fmt.Fprint(v, "c - chest\n")
-		fmt.Fprint(v, "\n↑←↓→ - move\n")
+		fmt.Fprint(v, "navigate: ↑←↓→\n")
+		fmt.Fprint(v, "add     : a\n")
 
 		return nil
 	}
@@ -216,7 +239,12 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		structureName = "unknown"
 	}
 	fmt.Fprintf(v, "Structure: %s\n", structureName)
-	fmt.Fprint(v, "\n↑←↓→ - move\n")
+	fmt.Fprint(v, "navigate: ↑←↓→\n")
+	fmt.Fprint(v, "delete  : d\n")
+	fmt.Fprint(v, "add     : a\n")
+	if structureName == "chest" {
+		fmt.Fprint(v, "transfer: t\n")
+	}
 
 	return nil
 }
@@ -431,14 +459,21 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			if w.s.state == stateStructureGhost {
-				w.s.ghost = nil
-				w.s.state = stateNavigate
+			if w.s.state != stateStructureGhost {
 				return nil
 			}
 
+			w.s.state = stateNavigate
+			w.s.ghost = nil
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'd', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
 			if w.s.state != stateNavigate {
 				return nil
 			}
@@ -614,7 +649,7 @@ func (w *StructureSelectorWidget) initBindings(g *gocui.Gui) error {
 		}); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			w.s.ghost = nil
 			w.s.state = stateNavigate
@@ -754,7 +789,7 @@ func (w *InventoryWidget) initBindings(g *gocui.Gui) error {
 		w.move(-1)); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding(w.name, 'q', gocui.ModNone,
+	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
 			w.position = 0
 			w.s.state = stateNavigate
