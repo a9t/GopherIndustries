@@ -10,6 +10,8 @@ const (
 	CycleSizeExtractor int = 40
 	// CycleSizeBelt the cycle size for the belt
 	CycleSizeBelt int = 20
+	// CycleSizeSplitter the cycle size for the splitter
+	CycleSizeSplitter int = 20
 	// ChestMaxStorage the maximum number of products stored in a chest
 	ChestMaxStorage int = 1000
 )
@@ -688,4 +690,118 @@ func (t *RawResource) Display(mode DisplayMode) string {
 	}
 
 	return fmt.Sprintf("\033[%d;%dm%c\033[0m", symbolColor, colorMode, symbol)
+}
+
+// SplitterLeftTile the left component of the Splitter
+type SplitterLeftTile struct {
+	BaseStructureTile
+}
+
+// NewSplitterLeftTile creates a new *SplitterLeftTile
+func NewSplitterLeftTile(pos int) *SplitterLeftTile {
+	tile := SplitterLeftTile{BaseStructureTile{pos % 4, 4, "splitterLeft", nil, nil, nil}}
+	return &tile
+}
+
+// SplitterRightTile the right component of the Splitter
+type SplitterRightTile struct {
+	BaseStructureTile
+}
+
+// NewSplitterRightTile creates a new *SplitterRightTile
+func NewSplitterRightTile(pos int) *SplitterRightTile {
+	tile := SplitterRightTile{BaseStructureTile{pos % 4, 4, "splitterRight", nil, nil, nil}}
+	return &tile
+}
+
+// ProductProgress the ticks spent by a product in a Structure
+type ProductProgress struct {
+	p *Product
+	c int
+}
+
+// Splitter Structure that splits 2 inputs into 2 outputs
+type Splitter struct {
+	BaseStructure
+	products []ProductProgress
+}
+
+// NewSplitter creates a new *Splitter
+func NewSplitter() *Splitter {
+	block := new(Splitter)
+	block.tiles = [][]StructureTile{
+		{NewSplitterLeftTile(0), NewSplitterRightTile(0)},
+	}
+
+	block.inputs = make([]Transfer, 2)
+	block.outputs = make([]Transfer, 2)
+
+	block.inputs[0] = Transfer{x: 0, y: 0, d: DirectionUp}
+	block.inputs[1] = Transfer{x: 1, y: 0, d: DirectionUp}
+	block.outputs[0] = Transfer{x: 0, y: 0, d: DirectionUp}
+	block.outputs[1] = Transfer{x: 1, y: 0, d: DirectionUp}
+
+	block.products = make([]ProductProgress, 0)
+
+	return block
+}
+
+// CopyStructure creates a copy of the Splitter
+func (s *Splitter) CopyStructure() Structure {
+	splitter := new(Splitter)
+
+	baseStructure := s.BaseStructure.copyStructure(splitter)
+	splitter.BaseStructure = *baseStructure
+
+	return splitter
+}
+
+// CanRetrieveProduct indicates if the internal Product can be extracted
+func (s *Splitter) CanRetrieveProduct() (*Product, bool) {
+	if len(s.products) == 0 {
+		return nil, false
+	}
+
+	if s.products[0].c != CycleSizeSplitter-1 {
+		return s.products[0].p, false
+	}
+
+	return s.products[0].p, true
+}
+
+// RetrieveProduct returns the internal Product and resets the internal state
+func (s *Splitter) RetrieveProduct() (*Product, bool) {
+	product, hasProduct := s.CanRetrieveProduct()
+	if !hasProduct {
+		return nil, false
+	}
+
+	s.products = s.products[1:]
+
+	return product, hasProduct
+}
+
+// CanAcceptProduct indicates if the Splitter can receive the Product
+func (s *Splitter) CanAcceptProduct(*Product) bool {
+	return len(s.products) < 2
+}
+
+// AcceptProduct passes the Product to the Splitter
+func (s *Splitter) AcceptProduct(p *Product) bool {
+	if len(s.products) >= 2 {
+		return false
+	}
+
+	s.products = append(s.products, ProductProgress{c: 0, p: p})
+
+	return true
+}
+
+// Tick advance the internal state of the Splitter
+func (s *Splitter) Tick() {
+	for i, entry := range s.products {
+		if entry.c < CycleSizeSplitter-1 {
+			s.products[i].c++
+		}
+	}
 }

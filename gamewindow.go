@@ -56,7 +56,7 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	structureSelectorWidget := newStructureSelectorWidget()
 	structureSelectorWidget.name = "Structure"
 	structureSelectorWidget.width = 20
-	structureSelectorWidget.height = 5
+	structureSelectorWidget.height = 6
 	structureSelectorWidget.offsetY = infoWidget.height + 1
 	structureSelectorWidget.s = s
 
@@ -181,6 +181,8 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 			structureName = "chest"
 		case *Extractor:
 			structureName = "extractor"
+		case *Splitter:
+			structureName = "splitter"
 		default:
 			structureName = "unknown"
 		}
@@ -235,6 +237,8 @@ func (w *InfoWidget) Layout(g *gocui.Gui) error {
 		structureName = "chest"
 	case *Extractor:
 		structureName = "extractor"
+	case *Splitter:
+		structureName = "splitter"
 	default:
 		structureName = "unknown"
 	}
@@ -572,10 +576,11 @@ type StructureSelectorWidget struct {
 
 func newStructureSelectorWidget() *StructureSelectorWidget {
 	w := new(StructureSelectorWidget)
-	w.products = make([]*Product, 3)
+	w.products = make([]*Product, 4)
 	w.products[0] = GlobalProductFactory.GetProduct(ProductStructureBelt)
 	w.products[1] = GlobalProductFactory.GetProduct(ProductStructureChest)
 	w.products[2] = GlobalProductFactory.GetProduct(ProductStructureExtractor)
+	w.products[3] = GlobalProductFactory.GetProduct(ProductStructureSplitter)
 
 	return w
 }

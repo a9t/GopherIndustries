@@ -13,6 +13,7 @@ type position struct {
 type Game struct {
 	WorldMap  [][]Tile
 	roots     map[Structure]position
+	splitters map[*Splitter]position
 	cursor    position
 	inventory *Storage
 }
@@ -73,6 +74,35 @@ func (g *Game) GetStructureAt(y, x int) (Structure, int, int) {
 
 // Tick advances the internal state of the game
 func (g *Game) Tick() {
+	// handle splitters first
+	for s := range g.splitters {
+		s.Tick()
+	}
+
+	for s, p := range g.splitters {
+		for _, input := range s.Inputs() {
+			if !s.CanAcceptProduct(nil) {
+				// splitted cannot accept products anymore
+				break
+			}
+
+			x := p.x + input.x
+			y := p.y + input.y
+
+			neighbour, _, _ := g.GetNeighbour(y, x, input.d, true)
+			if neighbour == nil {
+				continue
+			}
+
+			retrieved, _ := neighbour.RetrieveProduct()
+			if retrieved == nil {
+				continue
+			}
+
+			s.AcceptProduct(retrieved)
+		}
+	}
+
 	inProgress := make(map[Structure]position)
 	for s, p := range g.roots {
 		inProgress[s] = p
@@ -87,8 +117,6 @@ func (g *Game) Tick() {
 		}
 		delete(inProgress, crt)
 
-		_, hasProduct := crt.CanRetrieveProduct()
-
 		crt.Tick()
 		for _, input := range crt.Inputs() {
 			x := p.x + input.x
@@ -100,8 +128,14 @@ func (g *Game) Tick() {
 			}
 
 			// the Structure is a valid input provider
-			inProgress[neighbour] = position{x: nx, y: ny}
+			switch neighbour.(type) {
+			case *Splitter:
+				// do nothing, splitters are handled separately
+			default:
+				inProgress[neighbour] = position{x: nx, y: ny}
+			}
 
+			_, hasProduct := crt.CanRetrieveProduct()
 			if hasProduct {
 				// current structure has a product, so it cannot consume input
 				continue
@@ -110,17 +144,17 @@ func (g *Game) Tick() {
 			retrieved, _ := neighbour.CanRetrieveProduct()
 			if retrieved == nil {
 				// input provider has no item, so no need to look into it anymore
-				break
+				continue
 			}
 
 			// check and see if the current structure can consume Product
 			if !crt.CanAcceptProduct(retrieved) {
-				break
+				continue
 			}
 
 			retrieved, _ = neighbour.RetrieveProduct()
 			crt.AcceptProduct(retrieved)
-			break
+			continue
 		}
 	}
 }
@@ -181,6 +215,19 @@ func (g *Game) RemoveStructure(y, x int) Structure {
 		return nil
 	}
 
+	structureTiles := s.Tiles()
+	for yy, tiles := range structureTiles {
+		for xx, tile := range tiles {
+			g.WorldMap[y+yy][x+xx] = tile.UnderlyingResource()
+		}
+	}
+
+	switch ss := s.(type) {
+	case *Splitter:
+		delete(g.splitters, ss)
+		return s
+	}
+
 	for _, input := range s.Inputs() {
 		tx := input.x + x
 		ty := input.y + y
@@ -190,15 +237,14 @@ func (g *Game) RemoveStructure(y, x int) Structure {
 			continue
 		}
 
+		switch neighbour.(type) {
+		case *Splitter:
+			// splitters cannot be roots, because they are handled separately
+			continue
+		}
+
 		pos := position{x: nx, y: ny}
 		g.roots[neighbour] = pos
-	}
-
-	structureTiles := s.Tiles()
-	for xx, tiles := range structureTiles {
-		for yy, tile := range tiles {
-			g.WorldMap[y+yy][x+xx] = tile.UnderlyingResource()
-		}
 	}
 
 	delete(g.roots, s)
@@ -228,15 +274,21 @@ func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 		}
 	}
 
-	for i, tiles := range tilesMatrix {
-		for j, tile := range tiles {
-			t := g.WorldMap[y+i][x+j]
+	for yy, tiles := range tilesMatrix {
+		for xx, tile := range tiles {
+			t := g.WorldMap[y+yy][x+xx]
 			switch t.(type) {
 			case *RawResource:
 				tile.SetUnderlyingResource(t.(*RawResource))
-				g.WorldMap[y+i][x+j] = tile
+				g.WorldMap[y+yy][x+xx] = tile
 			}
 		}
+	}
+
+	switch ss := s.(type) {
+	case *Splitter:
+		g.splitters[ss] = position{x: x, y: y}
+		return true
 	}
 
 	for _, input := range s.Inputs() {
@@ -245,6 +297,12 @@ func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 
 		neighbour, _, _ := g.GetNeighbour(sy, sx, input.d, true)
 		if neighbour == nil {
+			continue
+		}
+
+		switch s.(type) {
+		case *Splitter:
+			// special handling for splitters, ignore them as roots
 			continue
 		}
 
@@ -258,10 +316,18 @@ func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 		sy := output.y + y
 
 		neighbour, _, _ := g.GetNeighbour(sy, sx, output.d, false)
-		if neighbour != nil {
-			isRoot = false
-			break
+		if neighbour == nil {
+			continue
 		}
+
+		switch neighbour.(type) {
+		case *Splitter:
+			// special handling for splitters, ignore them as roots
+			continue
+		}
+
+		isRoot = false
+		break
 	}
 
 	if isRoot {
@@ -298,11 +364,13 @@ func GenerateGame(height int, width int) *Game {
 	g := new(Game)
 	g.WorldMap = worldMap
 	g.roots = make(map[Structure]position)
+	g.splitters = make(map[*Splitter]position)
 
 	g.inventory = NewStorage(100)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureBelt), 50)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureChest), 2)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureExtractor), 4)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureSplitter), 5)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedCopperWire), 1)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedGear), 1)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedPlate), 1)

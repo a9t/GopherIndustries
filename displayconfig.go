@@ -29,27 +29,31 @@ func newDisplayConfigManager() *DisplayConfigManager {
 	asciiSymbolConfig := new(SymbolConfig)
 	asciiSymbolConfig.Name = "ascii"
 	asciiSymbolConfig.Types = map[string]string{
-		"resource":     string([]rune{32, 188, 189, 190}),
-		"belt":         string([]rune{226, 224, 225, 234, 232, 233, 238, 236, 237, 244, 242, 243}),
-		"fillerCorner": "/\\/\\",
-		"fillerMid":    "~|_|",
-		"fillerCenter": string([]rune{219}),
-		"input":        "V<A>",
-		"output":       "V<A>",
-		"chest":        "+",
+		"resource":      string([]rune{32, 188, 189, 190}),
+		"belt":          string([]rune{226, 224, 225, 234, 232, 233, 238, 236, 237, 244, 242, 243}),
+		"fillerCorner":  "/\\/\\",
+		"fillerMid":     "~|_|",
+		"fillerCenter":  string([]rune{219}),
+		"input":         "V<A>",
+		"output":        "V<A>",
+		"chest":         "+",
+		"splitterLeft":  string([]rune{200, 201, 187, 188}),
+		"splitterRight": string([]rune{217, 192, 218, 191}),
 	}
 
 	unicodeSymbolConfig := new(SymbolConfig)
 	unicodeSymbolConfig.Name = "FreeMono"
 	unicodeSymbolConfig.Types = map[string]string{
-		"resource":     " \u2591\u2592\u2593",
-		"belt":         "\u2193\u21B2\u21B3\u2190\u2196\u2199\u2191\u21B1\u21B0\u2192\u2198\u2197",
-		"fillerCorner": "\u259B\u259C\u259F\u2599",
-		"fillerMid":    "\u2580\u2590\u2584\u258C",
-		"fillerCenter": "\u2588",
-		"input":        "\u2913\u21E5\u2912\u21E4",
-		"output":       "\u21D3\u21D0\u21D1\u21D2",
-		"chest":        "\u25A3",
+		"resource":      " \u2591\u2592\u2593",
+		"belt":          "\u2193\u21B2\u21B3\u2190\u2196\u2199\u2191\u21B1\u21B0\u2192\u2198\u2197",
+		"fillerCorner":  "\u259B\u259C\u259F\u2599",
+		"fillerMid":     "\u2580\u2590\u2584\u258C",
+		"fillerCenter":  "\u2588",
+		"input":         "\u2913\u21E5\u2912\u21E4",
+		"output":        "\u21D3\u21D0\u21D1\u21D2",
+		"chest":         "\u25A3",
+		"splitterLeft":  "\u2558\u2553\u2555\u255C",
+		"splitterRight": "\u255B\u2559\u2552\u2556",
 	}
 
 	m.SymbolConfigs = []*SymbolConfig{unicodeSymbolConfig, asciiSymbolConfig}
