@@ -317,6 +317,17 @@ func NewFillerCenterTile(pos int) *FillerCenterTile {
 	return &tile
 }
 
+// InputTile tile that indicates an input end of a Structure
+type InputTile struct {
+	BaseStructureTile
+}
+
+// NewInputTile creates a new *InputTile
+func NewInputTile(pos int) *InputTile {
+	tile := InputTile{BaseStructureTile{pos % 4, 4, "input", nil, nil, nil}}
+	return &tile
+}
+
 // OutputTile tile that indicates an output end of a Structure
 type OutputTile struct {
 	BaseStructureTile
@@ -803,5 +814,170 @@ func (s *Splitter) Tick() {
 		if entry.c < CycleSizeSplitter-1 {
 			s.products[i].c++
 		}
+	}
+}
+
+// TriangleCornerTile a corner block that is a triangle
+type TriangleCornerTile struct {
+	BaseStructureTile
+}
+
+// NewTriangleCornerTile creates a new *TriangleCornerTile
+func NewTriangleCornerTile(pos int) *TriangleCornerTile {
+	tile := TriangleCornerTile{BaseStructureTile{pos % 4, 4, "cornerTriangle", nil, nil, nil}}
+	return &tile
+}
+
+// Factory Structure that splits 2 inputs into 2 outputs
+type Factory struct {
+	BaseStructure
+	recipe     *Recipe
+	inProducts map[*Product]int
+	counter    int
+}
+
+// NewFactory creates a new *Splitter
+func NewFactory() *Factory {
+	block := new(Factory)
+	block.tiles = [][]StructureTile{
+		{NewInputTile(2), NewFillerCenterTile(0), NewInputTile(2)},
+		{NewFillerCenterTile(0), NewFillerCenterTile(0), NewFillerCenterTile(0)},
+		{NewTriangleCornerTile(3), NewOutputTile(0), NewTriangleCornerTile(2)},
+	}
+
+	block.inputs = make([]Transfer, 2)
+	block.outputs = make([]Transfer, 1)
+
+	block.inputs[0] = Transfer{x: 0, y: 0, d: DirectionDown}
+	block.inputs[1] = Transfer{x: 2, y: 0, d: DirectionDown}
+	block.outputs[0] = Transfer{x: 1, y: 2, d: DirectionDown}
+
+	block.inProducts = make(map[*Product]int, 0)
+
+	return block
+}
+
+// CopyStructure creates a copy of the Factory
+func (f *Factory) CopyStructure() Structure {
+	factory := new(Factory)
+
+	baseStructure := f.BaseStructure.copyStructure(factory)
+	factory.BaseStructure = *baseStructure
+	factory.recipe = f.recipe
+
+	return factory
+}
+
+// CanRetrieveProduct indicates if the internal Product can be extracted
+func (f *Factory) CanRetrieveProduct() (*Product, bool) {
+	if f.recipe == nil {
+		return nil, false
+	}
+
+	if f.counter == 0 {
+		return nil, false
+	}
+
+	if f.counter != f.recipe.productionTicks {
+		return nil, false
+	}
+
+	return f.recipe.output, true
+}
+
+// RetrieveProduct returns the internal Product and resets the internal state
+func (f *Factory) RetrieveProduct() (*Product, bool) {
+	product, hasProduct := f.CanRetrieveProduct()
+	if !hasProduct {
+		return product, hasProduct
+	}
+
+	f.counter = 0
+
+	return product, hasProduct
+}
+
+// CanAcceptProduct indicates if the Factory can receive the Product
+func (f *Factory) CanAcceptProduct(p *Product) bool {
+	if f.recipe == nil {
+		return false
+	}
+
+	if f.counter > 0 {
+		// in the product generation phase
+		return false
+	}
+
+	maxCount, isPresent := f.recipe.input[p]
+	if !isPresent {
+		// not an input for the recipe
+		return false
+	}
+
+	count, isPresent := f.inProducts[p]
+	if !isPresent {
+		// no input for this was added yet
+		return true
+	}
+
+	return count != maxCount
+}
+
+// AcceptProduct passes the Product to the Factory
+func (f *Factory) AcceptProduct(p *Product) bool {
+	if !f.CanAcceptProduct(p) {
+		return false
+	}
+
+	count, isPresent := f.inProducts[p]
+	if !isPresent {
+		count = 0
+	}
+	f.inProducts[p] = count + 1
+
+	return true
+}
+
+// Tick advance the internal state of the Factory
+func (f *Factory) Tick() {
+	if f.recipe == nil {
+		return
+	}
+
+	if f.counter > 0 && f.counter < f.recipe.productionTicks {
+		// product is being generated
+		f.counter++
+		return
+	}
+
+	if f.counter == f.recipe.productionTicks {
+		// nothing to do, the product is ready for delivery
+		return
+	}
+
+	for product, maxCount := range f.recipe.input {
+		count, isPresent := f.inProducts[product]
+		if !isPresent {
+			return
+		}
+
+		if count < maxCount {
+			return
+		}
+	}
+
+	f.inProducts = make(map[*Product]int)
+	f.counter = 1
+}
+
+// SetRecipe specifies the recipe to be used by the Factory
+func (f *Factory) SetRecipe(r *Recipe) {
+	f.counter = 0
+	f.inProducts = make(map[*Product]int)
+	f.recipe = r
+
+	switch bst := f.BaseStructure.tiles[1][1].(type) {
+	case *BaseStructureTile:
+		bst.SetProduct(r.output)
 	}
 }

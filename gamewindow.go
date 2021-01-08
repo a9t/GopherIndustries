@@ -12,6 +12,7 @@ const (
 	stateStructureGhost
 	stateMoveFromInventory
 	stateMoveFromStructure
+	stateSetRecipe
 )
 
 type state struct {
@@ -56,9 +57,16 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	structureSelectorWidget := newStructureSelectorWidget()
 	structureSelectorWidget.name = "Structure"
 	structureSelectorWidget.width = 20
-	structureSelectorWidget.height = 6
+	structureSelectorWidget.height = 7
 	structureSelectorWidget.offsetY = infoWidget.height + 1
 	structureSelectorWidget.s = s
+
+	recipeSelectorWidget := newRecipeSelectorWidget()
+	recipeSelectorWidget.name = "Recipes"
+	recipeSelectorWidget.width = 20
+	recipeSelectorWidget.height = 7
+	recipeSelectorWidget.offsetY = infoWidget.height + 1
+	recipeSelectorWidget.s = s
 
 	inventoryWidget := newInventoryWidget()
 	inventoryWidget.name = "Inventory"
@@ -82,6 +90,7 @@ func NewGameWindow(manager WindowManager) *GameWindow {
 	w.widgets = append(w.widgets, structureSelectorWidget)
 	w.widgets = append(w.widgets, inventoryWidget)
 	w.widgets = append(w.widgets, chestInventoryWidget)
+	w.widgets = append(w.widgets, recipeSelectorWidget)
 
 	return &w
 }
@@ -521,6 +530,12 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 				copy := w.s.ghost.CopyStructure()
 				x, y := w.game.GetCursor()
 				w.game.PlaceStructure(y, x, copy)
+
+				switch w.s.ghost.(type) {
+				case *Factory:
+					w.s.ghost = nil
+					w.s.state = stateSetRecipe
+				}
 			}
 			return nil
 		}); err != nil {
@@ -576,11 +591,12 @@ type StructureSelectorWidget struct {
 
 func newStructureSelectorWidget() *StructureSelectorWidget {
 	w := new(StructureSelectorWidget)
-	w.products = make([]*Product, 4)
+	w.products = make([]*Product, 5)
 	w.products[0] = GlobalProductFactory.GetProduct(ProductStructureBelt)
 	w.products[1] = GlobalProductFactory.GetProduct(ProductStructureChest)
 	w.products[2] = GlobalProductFactory.GetProduct(ProductStructureExtractor)
 	w.products[3] = GlobalProductFactory.GetProduct(ProductStructureSplitter)
+	w.products[4] = GlobalProductFactory.GetProduct(ProductStructureFactory)
 
 	return w
 }
@@ -884,6 +900,147 @@ func (w *InventoryWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
 		if size == 0 {
 			return nil
 		}
+
+		newPosition := w.position + d
+		if newPosition >= 0 && newPosition < size {
+			w.position = newPosition
+		}
+
+		return nil
+	}
+}
+
+// RecipeSelectorWidget a GameWidget that displays available recipes
+type RecipeSelectorWidget struct {
+	name    string
+	offsetY int
+	width   int
+	height  int
+
+	game *Game
+	s    *state
+
+	position int
+}
+
+func newRecipeSelectorWidget() *RecipeSelectorWidget {
+	w := new(RecipeSelectorWidget)
+
+	return w
+}
+
+// SetGame sets the Game associated with RecipeSelectorWidget
+func (w *RecipeSelectorWidget) SetGame(game *Game) {
+	w.game = game
+}
+
+// Layout displays the RecipeSelectorWidget
+func (w *RecipeSelectorWidget) Layout(g *gocui.Gui) error {
+	if w.s.state != stateSetRecipe {
+		return nil
+	}
+
+	maxX, _ := g.Size()
+
+	v, err := g.SetView(w.name, maxX-w.width, w.offsetY, maxX-1, w.offsetY+w.height)
+	if err != nil && err != gocui.ErrUnknownView {
+		return err
+	}
+
+	if err == gocui.ErrUnknownView {
+		err = w.initBindings(g)
+		if err == nil {
+			return err
+		}
+	}
+
+	if _, err := g.SetViewOnTop(w.name); err != nil {
+		return err
+	}
+
+	if _, err := g.SetCurrentView(w.name); err != nil {
+		return err
+	}
+
+	v.Title = w.name
+	v.Clear()
+
+	maxPrintLines := w.height - 2
+	printedLines := 0
+
+	for index, recipe := range GlobalRecipeFactory.Assembly {
+		if index < w.position {
+			continue
+		}
+
+		if printedLines > maxPrintLines {
+			break
+		}
+
+		var prefix string
+		if index == w.position {
+			prefix = ">"
+		} else {
+			prefix = " "
+		}
+
+		fmt.Fprintf(v, "%s %s\n", prefix, recipe.output.name)
+		printedLines++
+
+		for input, count := range recipe.input {
+			fmt.Fprintf(v, "    %2d x %s\n", count, input.name)
+			printedLines++
+		}
+
+	}
+
+	return nil
+}
+
+func (w *RecipeSelectorWidget) initBindings(g *gocui.Gui) error {
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowDown, gocui.ModNone,
+		w.move(1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeyArrowUp, gocui.ModNone,
+		w.move(-1)); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, 'c', gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			w.position = 0
+			w.s.state = stateNavigate
+
+			return nil
+		}); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
+		func(g *gocui.Gui, v *gocui.View) error {
+			x, y := w.game.GetCursor()
+			s, _, _ := w.game.GetStructureAt(y, x)
+			if s == nil {
+				// this should not happen, this should only display if on a structure
+				return nil
+			}
+
+			switch f := s.(type) {
+			case *Factory:
+				f.SetRecipe(GlobalRecipeFactory.Assembly[w.position])
+				w.s.state = stateNavigate
+			}
+
+			return nil
+		}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *RecipeSelectorWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
+	return func(g *gocui.Gui, v *gocui.View) error {
+		size := len(GlobalRecipeFactory.Assembly)
 
 		newPosition := w.position + d
 		if newPosition >= 0 && newPosition < size {
