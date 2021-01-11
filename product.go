@@ -118,10 +118,50 @@ func newRecipeFactory() *RecipeFactory {
 	recipe.addInput(pCopper, 4)
 	rp.Assembly = append(rp.Assembly, recipe)
 
+	pBoard := GlobalProductFactory.GetProduct(ProductProcessedCircuitBoard)
+	recipe = newRecipe(pBoard, 200)
+	recipe.addInput(pWire, 6)
+	rp.Assembly = append(rp.Assembly, recipe)
+
 	pIron := GlobalProductFactory.GetProduct(ProductResourceIron)
 	pGear := GlobalProductFactory.GetProduct(ProductProcessedGear)
 	recipe = newRecipe(pGear, 120)
 	recipe.addInput(pIron, 4)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pPlate := GlobalProductFactory.GetProduct(ProductProcessedPlate)
+	recipe = newRecipe(pPlate, 120)
+	recipe.addInput(pIron, 10)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pStone := GlobalProductFactory.GetProduct(ProductResourceStone)
+	pExtractor := GlobalProductFactory.GetProduct(ProductStructureExtractor)
+	recipe = newRecipe(pExtractor, 200)
+	recipe.addInput(pStone, 10)
+	recipe.addInput(pPlate, 10)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pFactory := GlobalProductFactory.GetProduct(ProductStructureFactory)
+	recipe = newRecipe(pFactory, 200)
+	recipe.addInput(pStone, 10)
+	recipe.addInput(pPlate, 10)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pChest := GlobalProductFactory.GetProduct(ProductStructureChest)
+	recipe = newRecipe(pChest, 100)
+	recipe.addInput(pPlate, 4)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pBelt := GlobalProductFactory.GetProduct(ProductStructureBelt)
+	recipe = newRecipe(pBelt, 40)
+	recipe.addInput(pPlate, 1)
+	recipe.addInput(pGear, 1)
+	rp.Assembly = append(rp.Assembly, recipe)
+
+	pSplitter := GlobalProductFactory.GetProduct(ProductStructureSplitter)
+	recipe = newRecipe(pSplitter, 80)
+	recipe.addInput(pPlate, 3)
+	recipe.addInput(pGear, 3)
 	rp.Assembly = append(rp.Assembly, recipe)
 
 	return rp
