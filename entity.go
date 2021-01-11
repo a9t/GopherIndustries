@@ -695,7 +695,14 @@ func (t *RawResource) Display(mode DisplayMode) string {
 		repeat--
 	}
 
-	symbolColor := 33
+	var symbolColor int
+	colors := GlobalDisplayConfigManager.GetColorConfig().ResourceColors
+	if t.resource == -1 {
+		symbolColor = colors[0]
+	} else {
+		symbolColor = colors[t.resource]
+	}
+
 	colorMode := 4
 	if mode == DisplayModeMapSelected {
 		symbolColor = 37

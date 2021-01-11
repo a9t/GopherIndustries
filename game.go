@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"math/rand"
 )
 
@@ -351,26 +352,8 @@ func GenerateGame(height int, width int) *Game {
 		return nil
 	}
 
-	worldMap := make([][]Tile, height)
-	for i := 0; i < height; i++ {
-		worldMap[i] = make([]Tile, width)
-
-		for j := 0; j < width; j++ {
-			switch r := rand.Float32(); {
-			case r < 0.8:
-				worldMap[i][j] = &RawResource{0, -1}
-			case r < 0.9:
-				worldMap[i][j] = &RawResource{rand.Int() % 100, 0}
-			case r < 0.98:
-				worldMap[i][j] = &RawResource{100 + rand.Int()%100, 0}
-			default:
-				worldMap[i][j] = &RawResource{200 + rand.Int()%100, 0}
-			}
-		}
-	}
-
 	g := new(Game)
-	g.WorldMap = worldMap
+	g.WorldMap = generateMap(height, width)
 	g.roots = make(map[Structure]position)
 	g.splitters = make(map[*Splitter]position)
 
@@ -385,4 +368,113 @@ func GenerateGame(height int, width int) *Game {
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductResourceStone), 1)
 
 	return g
+}
+
+func distance(x, y int, xx, yy int) float64 {
+	dx := x - xx
+	if dx < 0 {
+		dx = -dx
+	}
+
+	dy := y - yy
+	if dy < 0 {
+		dy = -dy
+	}
+
+	return math.Sqrt(float64(dx*dx + dy*dy))
+}
+
+func generateMap(height, width int) [][]Tile {
+	worldMap := make([][]Tile, height)
+	for i := 0; i < height; i++ {
+		worldMap[i] = make([]Tile, width)
+		for j := 0; j < width; j++ {
+			worldMap[i][j] = &RawResource{0, -1}
+		}
+	}
+
+	minDistance := 20.
+	refMaxRay := 10.
+
+	size := 10 + rand.Int()%4
+	centers := make([][]int, size)
+	for index := range centers {
+		centers[index] = make([]int, 2)
+
+		var x int
+		var y int
+
+		for {
+			x = rand.Int() % width
+			y = rand.Int() % height
+
+			valid := true
+			for i := 0; i < index; i++ {
+				d := distance(x, y, centers[i][0], centers[i][1])
+				if d <= minDistance {
+					valid = false
+					break
+				}
+			}
+
+			if valid {
+				break
+			}
+		}
+
+		centers[index][0] = x
+		centers[index][1] = y
+
+		otherX := x - 4 + rand.Int()%9
+		otherY := y - 4 + rand.Int()%9
+
+		var minX, maxX int
+		if x < otherX {
+			minX, maxX = x, otherX
+		} else {
+			minX, maxX = otherX, x
+		}
+		minX -= 10
+		maxX += 10
+
+		var minY, maxY int
+		if y < otherY {
+			minY, maxY = y, otherY
+		} else {
+			minY, maxY = otherY, y
+		}
+		minY -= 10
+		maxY += 10
+
+		maxRay := refMaxRay + rand.Float64()*6
+		for i := minY; i <= maxY; i++ {
+			for j := minX; j <= maxX; j++ {
+				if i < 0 || j < 0 || i >= height || j >= width {
+					continue
+				}
+
+				d1 := distance(x, y, j, i)
+				d2 := distance(otherX, otherY, j, i)
+
+				if d1+d2 > maxRay {
+					continue
+				}
+
+				var amount int
+				switch r := rand.Float32(); {
+				case r <= 0.7:
+					amount = rand.Int() % 100
+				case r <= 0.9:
+					amount = 100 + rand.Int()%100
+				default:
+					amount = 200 + rand.Int()%100
+				}
+
+				worldMap[i][j] = &RawResource{amount, index % 3}
+			}
+
+		}
+	}
+
+	return worldMap
 }

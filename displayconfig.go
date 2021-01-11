@@ -22,7 +22,7 @@ func newDisplayConfigManager() *DisplayConfigManager {
 		{36, 1},
 		{31, 1},
 	}
-	eightColorConfig.ResourceColors = []int{33}
+	eightColorConfig.ResourceColors = []int{33, 31, 32}
 
 	m.ColorConfigs = []*ColorConfig{eightColorConfig}
 
