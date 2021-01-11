@@ -265,7 +265,11 @@ func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 	}
 
 	for i, tiles := range tilesMatrix {
-		for j := range tiles {
+		for j, tile := range tiles {
+			if tile == nil {
+				continue
+			}
+
 			t := g.WorldMap[y+i][x+j]
 			switch t.(type) {
 			case StructureTile:
@@ -276,6 +280,10 @@ func (g *Game) PlaceStructure(y, x int, s Structure) bool {
 
 	for yy, tiles := range tilesMatrix {
 		for xx, tile := range tiles {
+			if tile == nil {
+				continue
+			}
+
 			t := g.WorldMap[y+yy][x+xx]
 			switch t.(type) {
 			case *RawResource:

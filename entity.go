@@ -12,6 +12,8 @@ const (
 	CycleSizeBelt int = 20
 	// CycleSizeSplitter the cycle size for the splitter
 	CycleSizeSplitter int = 20
+	// CycleSizeUnderground the cycke size for underground
+	CycleSizeUnderground int = 4 * CycleSizeBelt
 	// ChestMaxStorage the maximum number of products stored in a chest
 	ChestMaxStorage int = 1000
 )
@@ -979,5 +981,116 @@ func (f *Factory) SetRecipe(r *Recipe) {
 	switch bst := f.BaseStructure.tiles[1][1].(type) {
 	case *BaseStructureTile:
 		bst.SetProduct(r.output)
+	}
+}
+
+// UndergroundEntryTile the entry component of the Underground
+type UndergroundEntryTile struct {
+	BaseStructureTile
+}
+
+// NewUndergroundEntryTile creates a new *UndergroundEntryTile
+func NewUndergroundEntryTile(pos int) *UndergroundEntryTile {
+	tile := UndergroundEntryTile{BaseStructureTile{pos % 4, 4, "undergroundEntry", nil, nil, nil}}
+	return &tile
+}
+
+// UndergroundExitTile the exit component of the UndergroundExitTile
+type UndergroundExitTile struct {
+	BaseStructureTile
+}
+
+// NewUndergroundExitTile creates a new *UndergroundExitTile
+func NewUndergroundExitTile(pos int) *UndergroundExitTile {
+	tile := UndergroundExitTile{BaseStructureTile{pos % 4, 4, "undergroundExit", nil, nil, nil}}
+	return &tile
+}
+
+// Underground Structure that transports Products undergound to avoid interserction
+type Underground struct {
+	BaseStructure
+	products []ProductProgress
+}
+
+// NewUnderground creates a new *Underground
+func NewUnderground() *Underground {
+	block := new(Underground)
+	block.tiles = [][]StructureTile{
+		{NewUndergroundEntryTile(0)},
+		{nil},
+		{nil},
+		{NewUndergroundExitTile(0)},
+	}
+
+	block.inputs = make([]Transfer, 1)
+	block.outputs = make([]Transfer, 1)
+
+	block.inputs[0] = Transfer{x: 0, y: 0, d: DirectionDown}
+	block.outputs[0] = Transfer{x: 0, y: 3, d: DirectionDown}
+
+	block.products = make([]ProductProgress, 0)
+
+	return block
+}
+
+// CopyStructure creates a copy of the Underground
+func (u *Underground) CopyStructure() Structure {
+	underground := new(Underground)
+
+	baseStructure := u.BaseStructure.copyStructure(underground)
+	underground.BaseStructure = *baseStructure
+
+	underground.products = make([]ProductProgress, 0)
+
+	return underground
+}
+
+// CanRetrieveProduct indicates if the internal Product can be extracted
+func (u *Underground) CanRetrieveProduct() (*Product, bool) {
+	if len(u.products) == 0 {
+		return nil, false
+	}
+
+	if u.products[0].c != CycleSizeUnderground-1 {
+		return u.products[0].p, false
+	}
+
+	return u.products[0].p, true
+}
+
+// RetrieveProduct returns the internal Product and resets the internal state
+func (u *Underground) RetrieveProduct() (*Product, bool) {
+	product, hasProduct := u.CanRetrieveProduct()
+	if !hasProduct {
+		return nil, false
+	}
+
+	u.products = u.products[1:]
+
+	return product, hasProduct
+}
+
+// CanAcceptProduct indicates if the Undeground can receive the Product
+func (u *Underground) CanAcceptProduct(*Product) bool {
+	return len(u.products) < 4
+}
+
+// AcceptProduct passes the Product to the Underground
+func (u *Underground) AcceptProduct(p *Product) bool {
+	if !u.CanAcceptProduct(p) {
+		return false
+	}
+
+	u.products = append(u.products, ProductProgress{c: 0, p: p})
+
+	return true
+}
+
+// Tick advance the internal state of the Underground
+func (u *Underground) Tick() {
+	for i, entry := range u.products {
+		if entry.c < CycleSizeUnderground-1 {
+			u.products[i].c++
+		}
 	}
 }

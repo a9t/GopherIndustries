@@ -408,7 +408,8 @@ func (w *GameMapWidget) Layout(g *gocui.Gui) error {
 				cursorY <= i &&
 				i < cursorY+ghostHeight &&
 				cursorX <= j &&
-				j < cursorX+ghostWidth {
+				j < cursorX+ghostWidth &&
+				ghost[i-cursorY][j-cursorX] != nil {
 
 				fmt.Fprintf(v, "%s", ghost[i-cursorY][j-cursorX].Display(mode))
 			} else {
@@ -591,12 +592,13 @@ type StructureSelectorWidget struct {
 
 func newStructureSelectorWidget() *StructureSelectorWidget {
 	w := new(StructureSelectorWidget)
-	w.products = make([]*Product, 5)
+	w.products = make([]*Product, 6)
 	w.products[0] = GlobalProductFactory.GetProduct(ProductStructureBelt)
 	w.products[1] = GlobalProductFactory.GetProduct(ProductStructureChest)
 	w.products[2] = GlobalProductFactory.GetProduct(ProductStructureExtractor)
 	w.products[3] = GlobalProductFactory.GetProduct(ProductStructureSplitter)
 	w.products[4] = GlobalProductFactory.GetProduct(ProductStructureFactory)
+	w.products[5] = GlobalProductFactory.GetProduct(ProductStructureUnderground)
 
 	return w
 }
