@@ -106,13 +106,11 @@ func (r *Recipe) addInput(p *Product, c int) {
 // RecipeFactory stores possible Recipes
 type RecipeFactory struct {
 	Assembly []*Recipe
-	Research []*Recipe
 }
 
 func newRecipeFactory() *RecipeFactory {
 	rp := new(RecipeFactory)
 	rp.Assembly = make([]*Recipe, 0)
-	rp.Research = make([]*Recipe, 0)
 
 	pCopper := GlobalProductFactory.GetProduct(ProductResourceCopper)
 	pWire := GlobalProductFactory.GetProduct(ProductProcessedCopperWire)
