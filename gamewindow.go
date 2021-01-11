@@ -987,8 +987,8 @@ func (w *RecipeSelectorWidget) Layout(g *gocui.Gui) error {
 		fmt.Fprintf(v, "%s %s\n", prefix, recipe.output.name)
 		printedLines++
 
-		for input, count := range recipe.input {
-			fmt.Fprintf(v, "    %2d x %s\n", count, input.name)
+		for _, product := range recipe.inputOrder {
+			fmt.Fprintf(v, "    %2d x %s\n", recipe.input[product], product.name)
 			printedLines++
 		}
 

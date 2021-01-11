@@ -86,6 +86,7 @@ func newProductFactory() *ProductFactory {
 // Recipe indicates the production process required for creating a new Product
 type Recipe struct {
 	input           map[*Product]int
+	inputOrder      []*Product
 	output          *Product
 	productionTicks int
 }
@@ -93,6 +94,7 @@ type Recipe struct {
 func newRecipe(p *Product, ticks int) *Recipe {
 	recipe := new(Recipe)
 	recipe.input = make(map[*Product]int)
+	recipe.inputOrder = make([]*Product, 0)
 	recipe.output = p
 	recipe.productionTicks = ticks
 
@@ -101,6 +103,7 @@ func newRecipe(p *Product, ticks int) *Recipe {
 
 func (r *Recipe) addInput(p *Product, c int) {
 	r.input[p] = c
+	r.inputOrder = append(r.inputOrder, p)
 }
 
 // RecipeFactory stores possible Recipes
