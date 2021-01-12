@@ -359,13 +359,10 @@ func GenerateGame(height int, width int) *Game {
 
 	g.inventory = NewStorage(100)
 	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureBelt), 50)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureChest), 2)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureExtractor), 4)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureSplitter), 5)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedCopperWire), 1)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedGear), 1)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductProcessedPlate), 1)
-	g.inventory.Add(GlobalProductFactory.GetProduct(ProductResourceStone), 1)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureChest), 3)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureExtractor), 3)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureSplitter), 6)
+	g.inventory.Add(GlobalProductFactory.GetProduct(ProductStructureFactory), 8)
 
 	return g
 }

@@ -493,9 +493,13 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 			}
 
 			x, y := w.game.GetCursor()
-			w.game.RemoveStructure(y, x)
-			return nil
+			s := w.game.RemoveStructure(y, x)
+			if s != nil {
+				p := GlobalProductFactory.GetProduct(s.GetCode())
+				w.game.inventory.Add(p, 1)
+			}
 
+			return nil
 		}); err != nil {
 		return err
 	}
@@ -532,10 +536,22 @@ func (w *GameMapWidget) initBindings(g *gocui.Gui) error {
 				x, y := w.game.GetCursor()
 				w.game.PlaceStructure(y, x, copy)
 
+				product := GlobalProductFactory.GetProduct(copy.GetCode())
+				w.game.inventory.Remove(product, 1)
+
 				switch w.s.ghost.(type) {
 				case *Factory:
 					w.s.ghost = nil
 					w.s.state = stateSetRecipe
+				}
+
+				if w.s.state != stateSetRecipe {
+					count, isPresent := w.game.inventory.objects[product]
+					if !isPresent || count == 0 {
+						w.s.state = stateStructureSelect
+						w.s.ghost = nil
+						return nil
+					}
 				}
 			}
 			return nil
@@ -587,18 +603,10 @@ type StructureSelectorWidget struct {
 	s    *state
 
 	position int
-	products []*Product
 }
 
 func newStructureSelectorWidget() *StructureSelectorWidget {
 	w := new(StructureSelectorWidget)
-	w.products = make([]*Product, 6)
-	w.products[0] = GlobalProductFactory.GetProduct(ProductStructureBelt)
-	w.products[1] = GlobalProductFactory.GetProduct(ProductStructureChest)
-	w.products[2] = GlobalProductFactory.GetProduct(ProductStructureExtractor)
-	w.products[3] = GlobalProductFactory.GetProduct(ProductStructureSplitter)
-	w.products[4] = GlobalProductFactory.GetProduct(ProductStructureFactory)
-	w.products[5] = GlobalProductFactory.GetProduct(ProductStructureUnderground)
 
 	return w
 }
@@ -610,7 +618,7 @@ func (w *StructureSelectorWidget) SetGame(game *Game) {
 
 // Layout displays the StructureSelectorWidget
 func (w *StructureSelectorWidget) Layout(g *gocui.Gui) error {
-	if w.s.state != stateStructureSelect {
+	if w.s.state != stateStructureSelect && w.s.state != stateStructureGhost {
 		return nil
 	}
 
@@ -632,23 +640,27 @@ func (w *StructureSelectorWidget) Layout(g *gocui.Gui) error {
 		return err
 	}
 
-	if _, err := g.SetCurrentView(w.name); err != nil {
-		return err
+	if w.s.state == stateStructureSelect {
+		if _, err := g.SetCurrentView(w.name); err != nil {
+			return err
+		}
 	}
 
 	v.Title = "Structures"
 
 	v.Clear()
 
-	for i, product := range w.products {
+	crtProduct, _, products := w.getProduct()
+	for _, product := range products {
 		var prefix string
-		if i == w.position {
+		if crtProduct == product {
 			prefix = ">"
 		} else {
 			prefix = " "
 		}
 
-		fmt.Fprintf(v, "%s %s\n", prefix, product.name)
+		count, _ := w.game.inventory.objects[product]
+		fmt.Fprintf(v, "%s %2d x %s\n", prefix, count, product.name)
 	}
 
 	return nil
@@ -665,7 +677,13 @@ func (w *StructureSelectorWidget) initBindings(g *gocui.Gui) error {
 	}
 	if err := g.SetKeybinding(w.name, gocui.KeySpace, gocui.ModNone,
 		func(g *gocui.Gui, v *gocui.View) error {
-			w.s.ghost = w.products[w.position].structure.CopyStructure()
+			product, _, _ := w.getProduct()
+			if product == nil {
+				w.s.state = stateNavigate
+				return nil
+			}
+
+			w.s.ghost = product.structure
 			w.s.state = stateStructureGhost
 
 			return nil
@@ -687,11 +705,42 @@ func (w *StructureSelectorWidget) initBindings(g *gocui.Gui) error {
 
 func (w *StructureSelectorWidget) move(d int) func(g *gocui.Gui, v *gocui.View) error {
 	return func(g *gocui.Gui, v *gocui.View) error {
-		w.position += d + len(w.products)
-		w.position %= len(w.products)
+		prod, total, _ := w.getProduct()
+		if prod == nil {
+			w.position = total - 1
+		}
+
+		w.position += d + total
+		w.position %= total
 
 		return nil
 	}
+}
+
+func (w *StructureSelectorWidget) getProduct() (*Product, int, []*Product) {
+	var returnProduct *Product
+	products := make([]*Product, 0)
+
+	index := -1
+	for _, product := range GlobalProductFactory.cannonicalOrder {
+		if product.structure == nil {
+			continue
+		}
+
+		_, isPresent := w.game.inventory.objects[product]
+		if !isPresent {
+			continue
+		}
+
+		index++
+
+		if index == w.position {
+			returnProduct = product
+		}
+		products = append(products, product)
+	}
+
+	return returnProduct, index + 1, products
 }
 
 // InventoryWidget a GameWidget that displays the full player inventory for transfer purposes

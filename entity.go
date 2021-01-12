@@ -86,6 +86,7 @@ type Structure interface {
 	RetrieveProduct() (*Product, bool)
 	CanAcceptProduct(*Product) bool
 	AcceptProduct(*Product) bool
+	GetCode() int
 }
 
 // BaseStructureTile one Tile component of a Structure
@@ -442,6 +443,11 @@ func (e *Extractor) Tick() {
 	e.product = GlobalProductFactory.GetProduct(rawResource.resource)
 }
 
+// GetCode return the code for the Extractor type
+func (*Extractor) GetCode() int {
+	return ProductStructureExtractor
+}
+
 // ChestTile is the map representation of a storage chest
 type ChestTile struct {
 	BaseStructureTile
@@ -524,6 +530,11 @@ func (c *Chest) RotateRight() {
 
 // RotateLeft does nothing for a Chest
 func (c *Chest) RotateLeft() {
+}
+
+// GetCode return the code for the Chest type
+func (*Chest) GetCode() int {
+	return ProductStructureChest
 }
 
 // BeltTile is the map representation of a conveyor belt
@@ -649,6 +660,11 @@ func (b *Belt) RotateLeft() {
 	b.tiles[0][0].RotateLeft()
 
 	b.setTransfers()
+}
+
+// GetCode return the code for the Belt type
+func (*Belt) GetCode() int {
+	return ProductStructureBelt
 }
 
 func (b *Belt) setTransfers() {
@@ -826,6 +842,11 @@ func (s *Splitter) Tick() {
 	}
 }
 
+// GetCode return the code for the Splitter type
+func (*Splitter) GetCode() int {
+	return ProductStructureSplitter
+}
+
 // TriangleCornerTile a corner block that is a triangle
 type TriangleCornerTile struct {
 	BaseStructureTile
@@ -991,6 +1012,11 @@ func (f *Factory) SetRecipe(r *Recipe) {
 	}
 }
 
+// GetCode return the code for the Factory type
+func (*Factory) GetCode() int {
+	return ProductStructureFactory
+}
+
 // UndergroundEntryTile the entry component of the Underground
 type UndergroundEntryTile struct {
 	BaseStructureTile
@@ -1100,4 +1126,9 @@ func (u *Underground) Tick() {
 			u.products[i].c++
 		}
 	}
+}
+
+// GetCode return the code for the Underground type
+func (*Underground) GetCode() int {
+	return ProductStructureUnderground
 }
